@@ -16,10 +16,9 @@ elf:
 	@echo $(BINS)
 
 binary: elf
-	$(foreach elf, $(ELFS), $(OBJCOPY)--strip-all $(elf) -O binary $(patsubst $(TARGET_DIR)/%, $(TARGET_DIR)/%.bin, $(elf));)
+	$(foreach elf, $(ELFS), \
+	$(OBJCOPY) --strip-all $(elf) -O binary $(patsubst $(TARGET_DIR)/%, $(TARGET_DIR)/%.bin, $(elf))& \
+	)
 
 build: binary
 
-
-#rust-objcopy --strip-all target/riscv64gc-unknown-none-elf/release/os -O binary target/riscv64gc-unknown-none-elf/release/os.bin
-#rust-objcopy --strip-all target/riscv64gc-unknown-none-elf/release/00hello_world -O binary target/riscv64gc-unknown-none-elf/release/00hello_world.bin
