@@ -1,3 +1,5 @@
+//! The panic handler
+
 use crate::{println, sbi::shutdown};
 use core::panic::PanicInfo;
 
