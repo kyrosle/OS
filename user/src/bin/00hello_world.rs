@@ -1,3 +1,7 @@
+//! [kernel] Loading app_0
+//! Hello, world!
+//! [kernel] Application exited with code 0
+
 #![no_std]
 #![no_main]
 #[macro_use]

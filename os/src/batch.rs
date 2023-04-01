@@ -90,6 +90,9 @@ impl AppManager {
     }
   }
 
+  /// load the `app_id` application into the 0x80400000 address,
+  ///
+  /// It essentially copies data from one piece of memory to another.
   unsafe fn load_app(&self, app_id: usize) {
     if app_id >= self.num_app {
       panic!("All applications completed!");
@@ -97,15 +100,20 @@ impl AppManager {
     println!("[kernel] Loading app_{}", app_id);
 
     // clear app area
+
+    // clear the application area and fill it with zero.
     core::slice::from_raw_parts_mut(
       APP_BASE_ADDRESS as *mut u8,
       APP_SIZE_LIMIT,
     )
     .fill(0);
+    // form the app code data slice.
     let app_src = core::slice::from_raw_parts(
       self.app_start[app_id] as *const u8,
       self.app_start[app_id + 1] - self.app_start[app_id],
     );
+
+    // copy the slice code to the destination area(0x80400000).
     let app_dst = core::slice::from_raw_parts_mut(
       APP_BASE_ADDRESS as *mut u8,
       app_src.len(),
@@ -113,7 +121,8 @@ impl AppManager {
     app_dst.copy_from_slice(app_src);
 
     // memory fence about fetching the instruction memory
-    // clear icache
+    // The fetch process after it must be able to see all previous
+    // modifications to the fetch memory area
     asm!("fence.i");
   }
 

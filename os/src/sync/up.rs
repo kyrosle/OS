@@ -4,10 +4,12 @@ use core::cell::{RefCell, RefMut};
 
 /// Wrap a static data structure inside it so that we are
 /// able to access it without any `unsafe`.
-/// 
-/// We should only use it in uniProcessor
-/// 
-/// In order to get mutable references of inner data, call `exclusive_access`
+///
+/// We should only use it in uniProcessor.
+///
+/// In order to get mutable references of inner data, call `exclusive_access`.
+///
+/// Allows us to safely use mutable global variables on single core .
 pub struct UPSafeCell<T> {
   /// inner data
   inner: RefCell<T>,

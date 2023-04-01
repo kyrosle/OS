@@ -33,6 +33,7 @@ fn clear_bss() {
 
 use syscall::*;
 
+/// fd set as `1`, meaning that it's a standard output(that is output to the screen).
 pub fn write(fd: usize, buf: &[u8]) -> isize {
   sys_write(fd, buf)
 }

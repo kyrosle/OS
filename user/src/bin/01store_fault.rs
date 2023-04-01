@@ -1,3 +1,7 @@
+//! [kernel] Loading app_1
+//! Into Test store_fault, we will insert an invalid store operation...
+//! Kernel should kill this application!
+//! [kernel] PageFault in application, kernel killed it
 #![no_std]
 #![no_main]
 

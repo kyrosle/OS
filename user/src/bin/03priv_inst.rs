@@ -1,3 +1,8 @@
+//! [kernel] Loading app_3
+//! Try to execute privileged instruction in U Mode
+//! Kernel should kill this application!
+//! [kernel] IllegalInstruction in application, kernel killed it
+
 #![no_std]
 #![no_main]
 

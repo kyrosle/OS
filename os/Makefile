@@ -5,6 +5,8 @@ run:
 		--strip-all target/riscv64gc-unknown-none-elf/release/os \
 		-O binary target/riscv64gc-unknown-none-elf/release/os.bin
 
+# comamnd instructions: \
+http://rcore-os.cn/rCore-Tutorial-Book-v3/chapter1/3first-instruction-in-kernel1.html#qemu
 	qemu-system-riscv64 \
     -machine virt \
 		-nographic \

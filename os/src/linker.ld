@@ -1,48 +1,68 @@
-OUTPUT_ARCH(riscv)
+/* target is risve */
+OUTPUT_ARCH(riscv) 
+/* the entry point, global symbol */
 ENTRY(_start)
+/* the kerenl initialize code address */
 BASE_ADDRESS = 0x80200000;
 
 SECTIONS
 {
-    . = BASE_ADDRESS;
-    skernel = .;
+  /* current address set as BASE_ADDRESS */
+  . = BASE_ADDRESS;
+  /* the start address of kernel */
+  skernel = .;
 
-    stext = .;
-    .text : {
-        *(.text.entry)
-        *(.text .text.*)
-    }
+  /* aligin the .text area, recording the start of text and the end of text  */
+  stext = .;
+  .text : {
+    *(.text.entry)
+    *(.text .text.*)
+  }
 
-    . = ALIGN(4K);
-    etext = .;
-    srodata = .;
-    .rodata : {
-        *(.rodata .rodata.*)
-        *(.srodata .srodata.*)
-    }
+  . = ALIGN(4K);
+  etext = .;
+  /* --------- */
 
-    . = ALIGN(4K);
-    erodata = .;
-    sdata = .;
-    .data : {
-        *(.data .data.*)
-        *(.sdata .sdata.*)
-    }
+  /* aligin the .rodata area  */
+  srodata = .;
+  .rodata : {
+    *(.rodata .rodata.*)
+    *(.srodata .srodata.*)
+  }
+  . = ALIGN(4K);
+  erodata = .;
+  /* --------- */
 
-    . = ALIGN(4K);
-    edata = .;
-    .bss : {
-        *(.bss.stack)
-        sbss = .;
-        *(.bss .bss.*)
-        *(.sbss .sbss.*)
-    }
+  /* aligin the .data area  */
+  sdata = .;
+  .data : {
+    *(.data .data.*)
+    *(.sdata .sdata.*)
+  }
+  . = ALIGN(4K);
+  edata = .;
+  /* --------- */
 
-    . = ALIGN(4K);
-    ebss = .;
-    ekernel = .;
+  /* aligin the bss area */
+  .bss : {
+    *(.bss.stack)
+    sbss = .;
+    *(.bss .bss.*)
+    *(.sbss .sbss.*)
+  }
+  . = ALIGN(4K);
+  ebss = .;
+  /* --------- */
 
-    /DISCARD/ : {
-        *(.eh_frame)
-    }
+  /* the end of kernel address */
+  ekernel = .;
+
+   /* output section */
+  /* filter */
+  /* discard the following segments */
+  /* reducing the size of the output file */
+  /DISCARD/ : {
+    /* debugging information */
+    *(.eh_frame)
+  }
 }

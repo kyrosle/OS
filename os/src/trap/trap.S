@@ -1,3 +1,4 @@
+# Enable or disable assembly macros, using `.rept`
 .altmacro
 .macro SAVE_GP n
     sd x\n, \n*8(sp)
@@ -8,11 +9,34 @@
     .section .text
     .globl __alltraps
     .globl __restore
+    # Address 4-byte alignment, which is required by the RISC-V privilege level specification
     .align 2
 __alltraps:
-    csrrw sp, sscratch, sp
-    # now sp->kernel stack, sscratch->user stack
+    # `csrrw rd, csr, rs1`
+    # privileged instruction, reading data from CSRRS(set), and then write back to CSRRC(clean).
+    # rd: target register, store the data.
+    # csr:  CSR register.
+    # rs1: general register, write data into it.
+
+    # `addi rd, rs1, imm`
+    # rd: target register.
+    # rs1: source register.
+    # imm: A 12-digit immediate number representing the value to add.
+
+    # `sd rs2, offset(rs1)`
+    # rs2: source register, the value should be stored.
+    # offset: A 12-bit immediate number representing the number of bytes offset from the base address.
+    # rs1: Base address register, which holds the memory address to be stored.
+
+    # `csrr rd, csr`
+    # rd: target register, store the csr value.
+    # csr:  the csr(name/address) which we want to read
+
+    # read data from sscratch, write the current sp value into sscratch, then write the sscratch value read before into sp.
+    csrrw sp, sscratch, sp # sscratch - temporary storage data.
+    # now sp -> `kernel stack`, sscratch -> `user stack`
     # allocate a TrapContext on kernel stack
+    # read the value from the sp, and then subtract 34*8, and then write it back to the sp.
     addi sp, sp, -34*8
     # save general-purpose registers
     sd x1, 1*8(sp)
@@ -33,8 +57,9 @@ __alltraps:
     # read user stack from sscratch and save it on the kernel stack
     csrr t2, sscratch
     sd t2, 2*8(sp)
-    # set input argument of trap_handler(cx: &mut TrapContext)
+    # storet the current sp(kernel stack pointer).
     mv a0, sp
+    # set input argument of trap_handler(cx: &mut TrapContext)
     call trap_handler
 
 __restore:

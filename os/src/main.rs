@@ -26,7 +26,9 @@ mod sbi;
 mod sync;
 mod syscall;
 mod trap;
+mod stack_trace;
 
+// Embed this assembly code.
 global_asm!(include_str!("entry.asm"));
 // this asm source file is created by build.rs
 global_asm!(include_str!("link_app.S"));
