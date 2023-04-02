@@ -58,15 +58,17 @@ Function Call Context:
 Register:
 |register|saver|
 |---|---|
-|a0~a7(x10~x17) |callee|
-|t0~t6(x5~x7, x28~x31) |callee|
-|s0~s11(x8~x9, x18~x27) |caller|
+|a0 ~ a7(x10 ~ x17) |callee|
+|t0 ~ t6(x5 ~ x7, x28 ~ x31) |callee|
+|s0 ~ s11(x8 ~ x9, x18 ~ x27) |caller|
 
 zero(x0), ra(x1), sp(x2), fp(s0), gp(x3), tp(x4)
 
 ![](pictures/stack_frame.png)
 
 ### With batch system
+
+![](/pictures/with_batch_system.png)
 
 ![](/pictures/Privilege-level-architecture.png)
 SEE: Supervisor Execution Environment
@@ -113,18 +115,21 @@ MODE -> Vectored
 ```
 
 ecall -> u - Trap into - S
+
 - sstatus.SPP -> U/S
 - spec Trap next instruction address
 - scause/stval record information
 - CPU -> stvec, privilege-level set as S
 
 sret -> s -> u
+
 - sstatus.SPP -> U/S
 - CPU -> spec
 
 User stack and Kernel stack(Just wrapping the bytes array).
 
 TrapContext
+
 ```rust
 #[repr(C)]
 pub struct TrapContext {
@@ -133,16 +138,23 @@ pub struct TrapContext {
     pub sepc: usize,
 }
 ```
+
 General purpose register `x0~x31`, `sstatus`, `spec`.
 
 The overall process of `Trap` processing is as follows:
+
 - First save the Trap context on the kernel stack by `__alltraps`.
 - Jump to `trap_handler` functions written in Rust to complete Trap distribution and processing.
 - When `trap_handler` returns, use `__restore` to recover registers from the Trap context stored on the kernel stack.
 - Finally, return to the application for execution through a `sret` instruction.
 
-Instructions for reading and writing CSR are a class of instructions that can 
+Instructions for reading and writing CSR are a class of instructions that can
 complete multiple read and write operations without interruption.
 
+### Multiprogramming and Time-Sharing Multitasking
 
-![](/pictures/with_batch_system.png)
+![](/pictures/multiprogramming_and_time_sharing_multitasking.png)
+
+![](/pictures/overall_structure.png)
+
+![](pictures/TimesharingOS.png)

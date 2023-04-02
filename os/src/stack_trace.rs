@@ -1,5 +1,6 @@
 use core::{arch::asm, ptr};
 
+/// print the current stack if a panic happen.
 pub unsafe fn print_stack_trace() {
   let mut fp: *const usize;
   asm!("mv {}, fp", out(reg) fp);

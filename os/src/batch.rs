@@ -1,4 +1,9 @@
-//! batch subsystem
+//! Loading user application into memory
+//!
+//! For chapter 3, user application are simply part of the data included in the
+//! kernel binary, so we only need to copy them to the space allocated for each
+//! app to load them. We also allocate fixed spaces for each task's
+//! [`KernelStack`] and [`UserStack`].
 
 use core::arch::asm;
 use lazy_static::lazy_static;
@@ -54,6 +59,18 @@ impl KernelStack {
   pub fn push_context(&self, cx: TrapContext) -> &'static mut TrapContext {
     let cx_ptr =
       (self.get_sp() - core::mem::size_of::<TrapContext>()) as *mut TrapContext;
+    // move the TrapContext
+    // position:
+    // High Address
+    // ( 4096 bytes )
+    // +------------+ <- Kernel stack sp
+    // |////////////|
+    // |Trap Context|
+    // |////////////| (sp - core::mem::size_of::<TrapContext>())
+    // |            |
+    // |            |
+    // +------------+
+    // Low Address
     unsafe {
       *cx_ptr = cx;
     }
