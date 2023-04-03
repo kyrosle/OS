@@ -43,7 +43,7 @@ __alltraps:
     # skip sp(x2), we will save it later
     sd x3, 3*8(sp)
     # skip tp(x4), application does not use it
-    # save x5~x31
+    # save x5 ~ x31
     .set n, 5
     .rept 27
         SAVE_GP %n
@@ -63,27 +63,24 @@ __alltraps:
     call trap_handler
 
 __restore:
-    # case1: start running app by __restore
-    # case2: back to U after handling trap
-    mv sp, a0
-    # now sp -> `kernel stack`(after allocated), sscratch -> `user stack` 
-    # restore sstatus/sepc
-    ld t0, 32*8(sp)
-    ld t1, 33*8(sp)
-    ld t2, 2*8(sp)
-    csrw sstatus, t0
-    csrw sepc, t1
-    csrw sscratch, t2
-    # restore general-purpuse registers except sp/tp
-    ld x1, 1*8(sp)
-    ld x3, 3*8(sp)
-    .set n, 5
-    .rept 27
-        LOAD_GP %n
-        .set n, n+1
-    .endr
-    # release TrapContext on kernel stack
-    addi sp, sp, 34*8
-    # now sp-> `kernel stack`, sscratch -> `user stack`
-    csrrw sp, sscratch, sp
-    sret
+  # now sp -> kernel-stack(after allocated), sscratch -> user-stack
+  # restore sstatus/spec
+  ld t0, 32*8(sp)
+  ld t1, 33*8(sp)
+  ld t2, 2*8(sp)
+  csrw sstatus, t0
+  csrw sepc, t1
+  csrw sscratch, t2
+  # restore general-purpuse registers expecct sp/tp
+  ld x1, 1*8(sp)
+  ld x3, 3*8(sp)
+  .set n, 5
+  .rept 27
+    LOAD_GP %n
+    .set n, n + 1
+  .endr
+  # release TrapContext on kernel stack
+  addi sp, sp, 34*8
+  # now sp -> kernel-stack, sscratch -> user-stack
+  csrrw sp, sscratch, sp
+  sret

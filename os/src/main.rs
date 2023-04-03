@@ -1,16 +1,16 @@
 //! The main module and entrypoint.
-//! 
-//! Various facilities of the kernels are implemented as submodules. 
+//!
+//! Various facilities of the kernels are implemented as submodules.
 //! The most important ones are:
-//! 
+//!
 //! - [`trap`]: Handles all cases of switching from user-space to the kernel.
 //! - [`syscall`]: System call handling and implementation.
-//! 
+//!
 //! The operating system also starts in this module. Kernel code starts
 //! executing from `entry.asm`, after which [`rust_main()`] is called to
 //! initialize various pieces of functionality.
-//! 
-//! We then call [`batch::run_next_app()`] and for the first time go to user-space.
+//!
+//! We then call [`task::run_first_task()`] and for the first time go to user-space.
 
 #![no_std]
 #![no_main]
@@ -18,15 +18,18 @@
 
 use core::arch::global_asm;
 
-mod batch;
+mod loader;
 #[macro_use]
 mod console;
+mod config;
 mod lang_items;
 mod sbi;
+mod stack_trace;
 mod sync;
 mod syscall;
+mod task;
+mod timer;
 mod trap;
-mod stack_trace;
 
 // Embed this assembly code.
 global_asm!(include_str!("entry.asm"));
@@ -37,10 +40,15 @@ global_asm!(include_str!("link_app.S"));
 #[no_mangle]
 pub fn rust_main() -> ! {
   clear_bss();
-  println!("[kernel] Hello,world!");
+  println!("[kernel] Kernel program startup");
   trap::init();
-  batch::init();
-  batch::run_next_app();
+  loader::load_apps();
+  // setting `sie.stie` interruption won't be masked.
+  trap::enable_timer_interrupt();
+  // setting a 10 ms time counter.
+  timer::set_next_trigger();
+  task::run_first_task();
+  panic!("Unreachable in rust_main!");
 }
 
 /// Clear BSS segment
