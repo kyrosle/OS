@@ -10,7 +10,7 @@ pub struct TaskContext {
   ra: usize,
   /// kernel stack pointer of app
   sp: usize,
-  /// callee saved registers:  s 0..11
+  /// callee saved registers:  s0 ~ s11
   s: [usize; 12],
 }
 
@@ -24,6 +24,7 @@ impl TaskContext {
     }
   }
 
+  /// set task context {__restore ASM function, kernel stack, s0 ~ s12}
   pub fn goto_restore(kstack_ptr: usize) -> Self {
     extern "C" {
       fn __restore();

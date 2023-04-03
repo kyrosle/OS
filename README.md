@@ -155,6 +155,72 @@ complete multiple read and write operations without interruption.
 
 ![](/pictures/multiprogramming_and_time_sharing_multitasking.png)
 
+We use python to build the linker script, we replace the application
+start address with the correct address which i-th application should place
+on.
+
 ![](/pictures/overall_structure.png)
+
+Considering an one-time execution application as a `task`,
+an `execution segment` or `idle segment` on a time segment
+in the application execution process is called a
+`computing task slice` or `idle task slice`.
+
+Switching tasks from one program to another is called `task switching`.
+
+The control flow between `Task switching` and `Trap` :
+
+- It does not involve privilege level switching
+- Part of it is done with the help of the compiler
+- Same as `Trap`, it is transparent to the application
+
+In fact, `Task switching` is a switch between the `Trap control flow` in the kernel from two different applications.
+
+when an application trap into S-mode, this trap control flow can call
+a special function `__switch`. After the `__switch` return, it will continue to execute the follow program segment.
+
+That means the previous trap control of application A flow will be paused
+and switch out. Then CPU will handle another trap control of
+application B. And then at the right time, the trap control flow of application A will be switch back from the trap control flow of application C (maybe not the pervious his switch to).
+
+Function `__switch` will change the `stack`.
+
+When we doing the switching operation, we should stored some registers (Task Context). The `Task Context` will stored at `TaskManager` as a `TaskControlBlock`, responsibly for saving the state of a task.
+
+```c
+TaskContext *current_task_cx_ptr = &tasks[current].task_cx;
+TaskContext *next_task_cx_ptr    = &tasks[next].task_cx;
+```
+
+![](/pictures/switch_statement.png)
+
+```rust
+pub struct TaskContext {
+  ra: usize,
+  sp: usize,
+  s: [usize; 12],
+}
+```
+
+- `ra`: It records where the `__switch` function should jump to continue execution after returning, so that it can get to the correct position after the task switch is completed and ret.
+- `sp`: kernel stack pointer of app.
+- `s`: Stored s0 ~ s11.
+
+A `TaskControlBlock` contains: `TaskStatus`, `TaskContext`.
+
+Interrupt of RISC-V:
+- Software Interrupt
+- Timer Interrupt
+- External Interrupt
+
+In the privilege level of S, interrupt mask - CSR has `sstatus` and `sie`. 
+`sie` has three type of interrupts: `ssie` / `stie` / `seie`.
+
+when the interrupt happen,
+- `sstatus.sie` will save at `sstatus.spie`, and `sstatus.sie` clear as zero.
+- after completion of interrupt handler, `sret` will return to the place interrupted by the interrupt and continue execution. Hardware will recover the `sstatus.sie` with the value of `sstatus.spie`. 
+
+In RISC-V 64 architectures, there is a 64-bit counter CSR `mtime`.
+another 64-bit counter CSR `mtimecmp`, if the value of `mtime` is exceed `mtimecmp`, it will cause a **timer interrupt**.
 
 ![](pictures/TimesharingOS.png)

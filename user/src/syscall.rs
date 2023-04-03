@@ -51,10 +51,22 @@ pub fn sys_exit(exit_code: i32) -> isize {
   syscall(SYSCALL_EXIT, [exit_code as usize, 0, 0])
 }
 
+/// ### Function:
+///   Indicates that the application itself `temporarily` gives up the current right to use the CPU and enters the `Ready` state.
+/// ### Return value:
+///   Returns whether the execution was successful, and returns 0 if successful.
+///
+/// syscall ID: 93
 pub fn sys_yield() -> isize {
   syscall(SYSCALL_YIELD, [0, 0, 0])
 }
 
+/// ### Function:
+///   Get the current time, saved in the TimeVal struct ts, _tz ignored in our implementation.
+/// ### Return value:
+///   Returns whether the execution was successful, and returns 0 if successful.
+///
+/// syscall ID: 169
 pub fn sys_get_time() -> isize {
   syscall(SYSCALL_GET_TIME, [0, 0, 0])
 }

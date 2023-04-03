@@ -18,7 +18,7 @@
 # rd: target register, store the csr value.
 # csr:  the csr(name/address) which we want to read
 
-# ------------------- 
+# -----------------
 
 # Enable or disable assembly macros, using `.rept`
 .altmacro
@@ -31,23 +31,11 @@
   .section .text
   .globl __alltraps
   .globl __restore
-  .globl __user_trap_start
-  .globl __real_trap_entry
-  .globl __user_trap_end
-  .globl __kernel_trap_end
   # Address 4-byte alignment, which is required by the RISC-V privilege level specification
   .align 2
 __alltraps:
-  csrr tp, sstatus
-  andi tp, tp, 0x100
-  beqz tp, __user_trap_start
-  j __real_trap_entry
-
-__user_trap_start:
   # read data from sscratch, write the current sp value into sscratch, then write the sscratch value read before into sp.
   csrrw sp, sscratch, sp # sscratch - temporary storage data.
-
-__real_trap_entry:
   # now sp -> `kernel stack`, sscratch -> `user stack`
   # allocate a TrapContext on kernel stack
   # read the value from the sp, and then subtract 34*8, and then write it back to the sp.
@@ -76,7 +64,6 @@ __real_trap_entry:
   # set input argument of trap_handler(cx: &mut TrapContext)
   call trap_handler
 
-# diffrent from chv2 part
 __restore:
   # now sp -> kernel-stack(after allocated), sscratch -> user-stack
   # restore sstatus/spec
@@ -86,11 +73,6 @@ __restore:
   csrw sstatus, t0
   csrw sepc, t1
   csrw sscratch, t2
-  # get SPP
-  andi t0, t0, 0x100
-  bnez t0, __kernel_trap_end
-
-__user_trap_end:
   # restore general-purpuse registers expecct sp/tp
   ld x1, 1*8(sp)
   ld x3, 3*8(sp)
@@ -103,17 +85,4 @@ __user_trap_end:
   addi sp, sp, 34*8
   # now sp -> kernel-stack, sscratch -> user-stack
   csrrw sp, sscratch, sp
-  sret
-
-__kernel_trap_end:
-  # restore general-purpuse registers expecct sp/tp
-  ld x1, 1*8(sp)
-  ld x3, 3*8(sp)
-  .set n, 5
-  .rept 27
-    LOAD_GP %n
-    .set n, n + 1
-  .endr
-  # release TrapContext on kernel stack
-  addi sp, sp, 34*8
   sret
