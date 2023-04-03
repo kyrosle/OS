@@ -12,4 +12,6 @@ pub enum TaskStatus {
 pub struct TaskControlBlock {
   pub task_status: TaskStatus,
   pub task_cx: TaskContext,
+  pub user_time: usize,
+  pub kernel_time: usize,
 }

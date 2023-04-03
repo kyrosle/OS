@@ -47,6 +47,17 @@ pub fn rust_main() -> ! {
   trap::enable_timer_interrupt();
   // setting a 10 ms time counter.
   timer::set_next_trigger();
+
+  use riscv::register::sstatus;
+  unsafe { sstatus::set_sie() }; // open the kernel interrupt
+  loop {
+    if trap::check_kernel_interrupt() {
+      println!("kernel interrupt returned.");
+      break;
+    }
+  }
+  unsafe { sstatus::clear_sie() }; // close the kernel interrupt
+
   task::run_first_task();
   panic!("Unreachable in rust_main!");
 }

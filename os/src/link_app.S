@@ -14,21 +14,21 @@ _num_app:
     .global app_0_start
     .global app_0_end
 app_0_start:
-    .incbin "../user/target/riscv64gc-unknown-none-elf/release/00hello_world.bin"
+    .incbin "../user/target/riscv64gc-unknown-none-elf/release/00power_3.bin"
 app_0_end:
 
     .section .data
     .global app_1_start
     .global app_1_end
 app_1_start:
-    .incbin "../user/target/riscv64gc-unknown-none-elf/release/01store_fault.bin"
+    .incbin "../user/target/riscv64gc-unknown-none-elf/release/01power_5.bin"
 app_1_end:
 
     .section .data
     .global app_2_start
     .global app_2_end
 app_2_start:
-    .incbin "../user/target/riscv64gc-unknown-none-elf/release/02power.bin"
+    .incbin "../user/target/riscv64gc-unknown-none-elf/release/02power_7.bin"
 app_2_end:
 
     .section .data

@@ -11,6 +11,7 @@
 use crate::config::*;
 use crate::loader::{get_num_app, init_app_cx};
 use crate::sync::UPSafeCell;
+use crate::timer::get_time_us;
 use lazy_static::lazy_static;
 
 mod context;
@@ -21,7 +22,27 @@ mod task;
 pub use context::*;
 pub use task::*;
 
-use self::switch::__switch;
+// discard
+// use self::switch::__switch;
+
+/// the start time of switching.
+static mut SWITCH_TIME_START: usize = 0;
+
+/// the total time of switching.
+static mut SWITCH_TIME_COUNT: usize = 0;
+
+unsafe fn __switch(
+  current_task_cx_ptr: *mut TaskContext,
+  next_task_cx_ptr: *const TaskContext,
+) {
+  SWITCH_TIME_START = get_time_us();
+  switch::__switch(current_task_cx_ptr, next_task_cx_ptr);
+  SWITCH_TIME_COUNT += get_time_us() - SWITCH_TIME_START;
+}
+
+fn get_switch_time_count() -> usize {
+  unsafe { SWITCH_TIME_COUNT }
+}
 
 /// The task manager, where all the tasks are managed.
 ///
@@ -50,6 +71,7 @@ impl TaskManager {
     let task0 = &mut inner.tasks[0];
     task0.task_status = TaskStatus::Running;
     let next_task_cx_ptr = &task0.task_cx as *const TaskContext;
+    inner.refresh_stop_watch();
     drop(inner);
 
     let mut _unused = TaskContext::zero_init();
@@ -64,6 +86,9 @@ impl TaskManager {
   fn mark_current_suspended(&self) {
     let mut inner = self.inner.exclusive_access();
     let current = inner.current_task;
+    // println!("task {} suspended", current);
+    // Statistical kernel time
+    inner.tasks[current].kernel_time += inner.refresh_stop_watch();
     inner.tasks[current].task_status = TaskStatus::Ready;
   }
 
@@ -71,8 +96,18 @@ impl TaskManager {
   fn mark_current_exited(&self) {
     let mut inner = self.inner.exclusive_access();
     let current = inner.current_task;
+    // println!("task {} exited", current);
+    // Statistical kernel time and output the time
+    inner.tasks[current].kernel_time += inner.refresh_stop_watch();
+    println!(
+      "[task {} exited. user_time: {} ms, kernel_time: {} ms.]",
+      current, inner.tasks[current].user_time, inner.tasks[current].kernel_time
+    );
     inner.tasks[current].task_status = TaskStatus::Exited;
   }
+
+  /// Switch current `Running` task to the task we have found,
+  /// or there is no `Ready` task and we can exit with all applications completed.
   fn run_next_task(&self) {
     if let Some(next) = self.find_next_task() {
       let mut inner = self.inner.exclusive_access();
@@ -89,15 +124,35 @@ impl TaskManager {
       }
       // go back to user mode
     } else {
-      panic!("All applications completed!");
+      println!("All applications completed!");
+
+      println!("task switch time: {} us", get_switch_time_count());
     }
   }
+
+  /// Find next task to run and return task id.
+  ///
+  /// In this case, we only return the first `Ready` task in task list.
   fn find_next_task(&self) -> Option<usize> {
     let inner = self.inner.exclusive_access();
     let current = inner.current_task;
     (current + 1..current + self.num_app + 1)
       .map(|id| id % self.num_app)
       .find(|id| inner.tasks[*id].task_status == TaskStatus::Ready)
+  }
+
+  /// Statistics the kernel time, from now it's user time.
+  fn user_time_start(&self) {
+    let mut inner = self.inner.exclusive_access();
+    let current = inner.current_task;
+    inner.tasks[current].kernel_time += inner.refresh_stop_watch();
+  }
+
+  /// Statistics the user time, from now it's kernel time.
+  fn user_time_end(&self) {
+    let mut inner = self.inner.exclusive_access();
+    let current = inner.current_task;
+    inner.tasks[current].user_time += inner.refresh_stop_watch();
   }
 }
 
@@ -107,6 +162,15 @@ struct TaskManagerInner {
   tasks: [TaskControlBlock; MAX_APP_NUM],
   /// id of current `Running` task
   current_task: usize,
+  stop_watch: usize,
+}
+
+impl TaskManagerInner {
+  fn refresh_stop_watch(&mut self) -> usize {
+    let start_time = self.stop_watch;
+    self.stop_watch = get_time_us();
+    self.stop_watch - start_time
+  }
 }
 
 lazy_static! {
@@ -116,12 +180,18 @@ lazy_static! {
     let mut tasks = [TaskControlBlock {
       task_cx: TaskContext::zero_init(),
       task_status: TaskStatus::UnInit,
+      kernel_time: 0,
+      user_time: 0,
     }; MAX_APP_NUM];
 
-    for i in 0..num_app {
-      tasks[i].task_cx = TaskContext::goto_restore(init_app_cx(i));
-      tasks[i].task_status = TaskStatus::Ready;
-    }
+    // for i in 0..num_app {
+    //   tasks[i].task_cx = TaskContext::goto_restore(init_app_cx(i));
+    //   tasks[i].task_status = TaskStatus::Ready;
+    // }
+    tasks.iter_mut().enumerate().take(num_app).for_each(|(i,task)| {
+      task.task_cx = TaskContext::goto_restore(init_app_cx(i));
+      task.task_status = TaskStatus::Ready;
+    });
 
     TaskManager {
       num_app,
@@ -129,6 +199,7 @@ lazy_static! {
         UPSafeCell::new(TaskManagerInner {
           tasks,
           current_task: 0,
+          stop_watch: 0,
         })
       },
     }
@@ -159,4 +230,12 @@ pub fn run_first_task() {
 
 fn run_next_task() {
   TASK_MANAGER.run_next_task();
+}
+
+pub fn user_time_start() {
+  TASK_MANAGER.user_time_start()
+}
+
+pub fn user_time_end() {
+  TASK_MANAGER.user_time_end()
 }

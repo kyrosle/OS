@@ -31,6 +31,8 @@ use crate::{
 
 global_asm!(include_str!("trap.S"));
 
+static mut KERNEL_INTERRUPT_TRIGGERED: bool = false;
+
 /// initialize CSR `stvec` as the entry of `__alltraps`
 pub fn init() {
   extern "C" {
@@ -51,16 +53,17 @@ pub fn enable_timer_interrupt() {
 /// handle an interrupt, exception, or system call from user space.
 #[no_mangle]
 pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
+  crate::task::user_time_end();
   let scause = scause::read(); // get trap cause
   let stval = stval::read(); // get extra value
   match scause.cause() {
     Trap::Exception(Exception::UserEnvCall) => {
-      cx.spec += 4;
+      cx.sepc += 4;
       cx.x[10] = syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12]]) as usize;
     }
     Trap::Exception(Exception::StoreFault)
     | Trap::Exception(Exception::StorePageFault) => {
-      println!("[kernel] PageFault in application, kernel killed it");
+      println!("[kernel] PageFault in application, bad addr = {:#x}, bad instruction = {:#x}, core dumped.", stval, cx.sepc);
       exit_current_and_run_exit();
     }
     Trap::Exception(Exception::IllegalInstruction) => {
@@ -79,5 +82,39 @@ pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
       );
     }
   }
+  crate::task::user_time_start();
   cx
+}
+
+pub fn kernel_trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
+  let scause = scause::read();
+  let stval = stval::read();
+  match scause.cause() {
+    Trap::Interrupt(Interrupt::SupervisorTimer) => {
+      // timer interrupt from kernel.
+      println!("kernel interrupt: from timer");
+      // mark interrupt trigger.
+      trigger_kernel_interrupt();
+      set_next_trigger();
+    }
+    Trap::Exception(Exception::StoreFault)
+    | Trap::Exception(Exception::StorePageFault) => {
+      panic!("[kernel] PageFault in kernel, bad addr = {:#x}, bad instruction = {:#x}, kernel killed it.", stval, cx.sepc);
+    }
+    _ => {
+      // other kernel error / interrupt.
+      panic!("unknown kernel exception or interrupt");
+    }
+  }
+  cx
+}
+
+pub fn check_kernel_interrupt() -> bool {
+  unsafe { (&mut KERNEL_INTERRUPT_TRIGGERED as *mut bool).read_volatile() }
+}
+
+pub fn trigger_kernel_interrupt() {
+  unsafe {
+    (&mut KERNEL_INTERRUPT_TRIGGERED as *mut bool).write_volatile(true);
+  }
 }

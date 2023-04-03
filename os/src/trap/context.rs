@@ -7,11 +7,11 @@ pub struct TrapContext {
   /// CSR sstatus
   pub sstatus: Sstatus,
   /// CSR spec
-  pub spec: usize,
+  pub sepc: usize,
 }
 
 impl TrapContext {
-  /// set stack pointer to x_2 reg(sp)
+  /// set stack pointer to x2 register(sp)
   pub fn set_sp(&mut self, sp: usize) {
     self.x[2] = sp;
   }
@@ -22,7 +22,7 @@ impl TrapContext {
     let mut cx = Self {
       x: [0; 32],
       sstatus,
-      spec: entry, // entry point of app
+      sepc: entry, // entry point of app
     };
     cx.set_sp(sp); // app's user stack pointer
     cx // return initial Trap Context of app

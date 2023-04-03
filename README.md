@@ -3,7 +3,7 @@
 ## Installation
 
 - rust : download rust from the default settings, and then set `rust-toolchain.toml` to specified the `nightly` version.
-- qemu : the `qemu` version must be `7.0.0` [download the qemu](https://qemu.weilnetz.de/w64/2022/qemu-w64-setup-20220419.exe), otherwise, the startup address won't be `0x0800000`.
+- qemu : the `qemu` version must be `7.0.0` [download the qemu](https://qemu.weilnetz.de/w64/2022/qemu-w64-setup-20220419.exe), otherwise, the startup address won't be `0x0000000`.
 
 needing tools:
 

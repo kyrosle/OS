@@ -1,5 +1,7 @@
 //! Implementation of [`TaskContext`]
 
+use super::TaskStatus;
+
 /// Task Context
 #[derive(Copy, Clone)]
 #[repr(C)]
