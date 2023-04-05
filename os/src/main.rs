@@ -15,8 +15,10 @@
 #![no_std]
 #![no_main]
 #![feature(panic_info_message)]
+#![feature(alloc_error_handler)]
 
 use core::arch::global_asm;
+extern crate alloc;
 
 mod loader;
 #[macro_use]
@@ -30,6 +32,7 @@ mod syscall;
 mod task;
 mod timer;
 mod trap;
+mod mm;
 
 // Embed this assembly code.
 global_asm!(include_str!("entry.asm"));
