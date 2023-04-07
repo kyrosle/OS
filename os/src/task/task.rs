@@ -8,7 +8,6 @@ use super::TaskContext;
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum TaskStatus {
-  UnInit,
   Ready,
   Running,
   Exited,
@@ -42,6 +41,7 @@ impl TaskControlBlock {
       .translate(VirtAddr::from(TRAP_CONTEXT).into())
       .unwrap()
       .ppn();
+
     let task_status = TaskStatus::Ready;
 
     // map a kernel-stack in kernel space.

@@ -35,10 +35,10 @@ use crate::{
 
 global_asm!(include_str!("trap.S"));
 
-static mut KERNEL_INTERRUPT_TRIGGERED: bool = false;
-
 /// initialize CSR `stvec` as the entry of `__alltraps`
-pub fn init() {}
+pub fn init() {
+  set_kernel_trap_entry();
+}
 
 /// timer interrupt enabled
 pub fn enable_timer_interrupt() {
@@ -60,12 +60,15 @@ pub fn trap_from_kernel() -> ! {
 
 fn set_user_trap_entry() {
   unsafe {
-    stvec::write(TRAMPOLINE as usize, TrapMode::Direct);
+    stvec::write(TRAMPOLINE, TrapMode::Direct);
   }
 }
 #[no_mangle]
+/// set the new addr of __restore asm function in TRAMPOLINE page,
+/// set the reg a0 = trap_cx_ptr, reg a1 = physical address of user page table.
+/// finally, jump to new address of __restore asm function.
 pub fn trap_return() -> ! {
-  set_kernel_trap_entry();
+  set_user_trap_entry();
   let trap_cx_ptr = TRAP_CONTEXT;
   let user_satp = current_user_token();
   extern "C" {
@@ -76,30 +79,34 @@ pub fn trap_return() -> ! {
   unsafe {
     asm!(
       "fence.i",
-      "jr {restore_va}",
+      "jr {restore_va}", // jump to new address of __restore asm function
       restore_va = in(reg) restore_va,
-      in("a0") trap_cx_ptr,
-      in("a1") user_satp,
+      in("a0") trap_cx_ptr, // a0 = virtual address of TrapContext
+      in("a1") user_satp, // a1 = physical page of user page table
       options(noreturn)
     );
   }
-  panic!("Unreachable in back_to_user!");
 }
 
-/// handle an interrupt, exception, or system call from user space.
 #[no_mangle]
-pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
+/// handle an interrupt, exception, or system call from user space.
+pub fn trap_handler() -> ! {
   crate::task::user_time_end();
+  set_kernel_trap_entry();
+
   let cx = current_trap_cx();
   let scause = scause::read(); // get trap cause
   let stval = stval::read(); // get extra value
+
   match scause.cause() {
     Trap::Exception(Exception::UserEnvCall) => {
       cx.sepc += 4;
       cx.x[10] = syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12]]) as usize;
     }
     Trap::Exception(Exception::StoreFault)
-    | Trap::Exception(Exception::StorePageFault) => {
+    | Trap::Exception(Exception::StorePageFault)
+    | Trap::Exception(Exception::LoadFault)
+    | Trap::Exception(Exception::LoadPageFault) => {
       println!("[kernel] PageFault in application, bad addr = {:#x}, bad instruction = {:#x}, core dumped.", stval, cx.sepc);
       exit_current_and_run_exit();
     }
@@ -120,5 +127,5 @@ pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
     }
   }
   crate::task::user_time_start();
-  cx
+  trap_return();
 }

@@ -1,7 +1,7 @@
 //! Implementation of [`PageTableEntry`] and [`PageTable`].
 
+use alloc::vec;
 use alloc::vec::Vec;
-use alloc::{boxed::Box, vec};
 use bitflags::*;
 
 use super::{

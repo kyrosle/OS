@@ -105,7 +105,7 @@ impl From<usize> for VirtAddr {
 
 impl From<usize> for VirtPageNum {
   fn from(v: usize) -> Self {
-    Self(v & ((1 << VA_WIDTH_SV39) - 1))
+    Self(v & ((1 << VPN_WIDTH_SV39) - 1))
   }
 }
 

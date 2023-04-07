@@ -2,9 +2,8 @@
 
 use crate::trap::trap_return;
 
-/// Task Context
-#[derive(Copy, Clone)]
 #[repr(C)]
+/// Task Context structure containing some registers.
 pub struct TaskContext {
   /// return address ( e.g. __restore ) of __switch ASM function
   ra: usize,
@@ -25,10 +24,10 @@ impl TaskContext {
   }
 
   /// set Task context{__restore ASM function: trap_return, sp: kstack_ptr, s: s0 ~ s12}
-  pub fn goto_trap_return(kstrack_ptr: usize) -> Self {
+  pub fn goto_trap_return(kstack_ptr: usize) -> Self {
     TaskContext {
       ra: trap_return as usize,
-      sp: kstrack_ptr,
+      sp: kstack_ptr,
       s: [0; 12],
     }
   }
