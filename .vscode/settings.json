@@ -3,4 +3,13 @@
   "rust-analyzer.checkOnSave.allTargets": false,
   "rust-analyzer.cargo.target": "riscv64gc-unknown-none-elf",
   "python.analysis.typeCheckingMode": "basic",
+  "cSpell.words": [
+    "bitflags",
+    "dealloc",
+    "idxs",
+    "satp",
+    "unmap",
+    "unmapping",
+    "Virt"
+  ],
 }

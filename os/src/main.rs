@@ -4,6 +4,7 @@
 //! The most important ones are:
 //!
 //! - [`trap`]: Handles all cases of switching from user-space to the kernel.
+//! - [`task`]: Task management.
 //! - [`syscall`]: System call handling and implementation.
 //!
 //! The operating system also starts in this module. Kernel code starts
@@ -16,16 +17,18 @@
 #![no_main]
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
-#![feature(array_from_fn)]
 
 use core::arch::global_asm;
 extern crate alloc;
+#[macro_use]
+extern crate bitflags;
 
 mod loader;
 #[macro_use]
 mod console;
 mod config;
 mod lang_items;
+mod mm;
 mod sbi;
 mod stack_trace;
 mod sync;
@@ -33,7 +36,6 @@ mod syscall;
 mod task;
 mod timer;
 mod trap;
-mod mm;
 
 // Embed this assembly code.
 global_asm!(include_str!("entry.asm"));
@@ -45,8 +47,10 @@ global_asm!(include_str!("link_app.S"));
 pub fn rust_main() -> ! {
   clear_bss();
   println!("[kernel] Kernel program startup");
+  mm::init();
+  println!("[kernel] back to world!");
+  mm::remap_test();
   trap::init();
-  loader::load_apps();
   // setting `sie.stie` interruption won't be masked.
   trap::enable_timer_interrupt();
   // setting a 10 ms time counter.

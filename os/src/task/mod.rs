@@ -9,9 +9,11 @@
 //! Be careful when you see `__switch` ASM function in `switch.S`. Control flow around this function
 //! might not be what you expect.
 use crate::config::*;
-use crate::loader::{get_num_app, init_app_cx};
+use crate::loader::{get_app_data, get_num_app};
 use crate::sync::UPSafeCell;
 use crate::timer::get_time_us;
+use crate::trap::TrapContext;
+use alloc::vec::Vec;
 use lazy_static::lazy_static;
 
 mod context;
@@ -141,6 +143,18 @@ impl TaskManager {
       .find(|id| inner.tasks[*id].task_status == TaskStatus::Ready)
   }
 
+  fn get_current_token(&self) -> usize {
+    let inner = self.inner.exclusive_access();
+    let current = inner.current_task;
+    inner.tasks[current].get_user_token()
+  }
+
+  fn get_current_trap_cx(&self) -> &mut TrapContext {
+    let inner = self.inner.exclusive_access();
+    let current = inner.current_task;
+    inner.tasks[current].get_trap_cx()
+  }
+
   /// Statistics the kernel time, from now it's user time.
   fn user_time_start(&self) {
     let mut inner = self.inner.exclusive_access();
@@ -159,7 +173,7 @@ impl TaskManager {
 /// Inner of Task Manager
 struct TaskManagerInner {
   /// task list
-  tasks: [TaskControlBlock; MAX_APP_NUM],
+  tasks: Vec<TaskControlBlock>,
   /// id of current `Running` task
   current_task: usize,
   stop_watch: usize,
@@ -176,22 +190,13 @@ impl TaskManagerInner {
 lazy_static! {
   /// Global variable: TASK_MANAGER
   pub static ref TASK_MANAGER: TaskManager = {
+    println!("init TASK_MANAGER");
     let num_app = get_num_app();
-    let mut tasks = [TaskControlBlock {
-      task_cx: TaskContext::zero_init(),
-      task_status: TaskStatus::UnInit,
-      kernel_time: 0,
-      user_time: 0,
-    }; MAX_APP_NUM];
-
-    // for i in 0..num_app {
-    //   tasks[i].task_cx = TaskContext::goto_restore(init_app_cx(i));
-    //   tasks[i].task_status = TaskStatus::Ready;
-    // }
-    tasks.iter_mut().enumerate().take(num_app).for_each(|(i,task)| {
-      task.task_cx = TaskContext::goto_restore(init_app_cx(i));
-      task.task_status = TaskStatus::Ready;
-    });
+    println!("num_app = {}", num_app);
+    let mut tasks: Vec<TaskControlBlock> = Vec::new();
+    for i in 0..num_app {
+      tasks.push(TaskControlBlock::new(get_app_data(i), i) );
+    }
 
     TaskManager {
       num_app,
@@ -238,4 +243,12 @@ pub fn user_time_start() {
 
 pub fn user_time_end() {
   TASK_MANAGER.user_time_end()
+}
+
+pub fn current_user_token() -> usize {
+  TASK_MANAGER.get_current_token()
+}
+
+pub fn current_trap_cx() -> &'static mut TrapContext {
+  TASK_MANAGER.get_current_trap_cx()
 }

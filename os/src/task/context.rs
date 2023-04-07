@@ -1,6 +1,6 @@
 //! Implementation of [`TaskContext`]
 
-use super::TaskStatus;
+use crate::trap::trap_return;
 
 /// Task Context
 #[derive(Copy, Clone)]
@@ -24,14 +24,11 @@ impl TaskContext {
     }
   }
 
-  /// set task context {__restore ASM function, kernel stack, s0 ~ s12}
-  pub fn goto_restore(kstack_ptr: usize) -> Self {
-    extern "C" {
-      fn __restore();
-    }
+  /// set Task context{__restore ASM function: trap_return, sp: kstack_ptr, s: s0 ~ s12}
+  pub fn goto_trap_return(kstrack_ptr: usize) -> Self {
     TaskContext {
-      ra: __restore as usize,
-      sp: kstack_ptr,
+      ra: trap_return as usize,
+      sp: kstrack_ptr,
       s: [0; 12],
     }
   }
