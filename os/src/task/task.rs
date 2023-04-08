@@ -1,3 +1,4 @@
+//! Types related to task management
 use crate::{
   config::{kernel_stack_position, TRAP_CONTEXT},
   mm::{MapPermission, MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE},
@@ -13,6 +14,7 @@ pub enum TaskStatus {
   Exited,
 }
 
+/// Task control block structure
 pub struct TaskControlBlock {
   pub task_status: TaskStatus,
   pub task_cx: TaskContext,

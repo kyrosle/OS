@@ -21,7 +21,6 @@
 # -----------------
 
 # Enable or disable assembly macros, using `.rept`
-.section .text.trampoline
 .altmacro
 .macro SAVE_GP n
   sd x\n, \n*8(sp)
@@ -29,7 +28,7 @@
 .macro LOAD_GP n
   ld x\n, \n*8(sp)
 .endm
-  .section .text
+  .section .text.trampoline
   .globl __alltraps
   .globl __restore
   # Address 4-byte alignment, which is required by the RISC-V privilege level specification

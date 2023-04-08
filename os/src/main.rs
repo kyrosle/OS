@@ -46,21 +46,27 @@ global_asm!(include_str!("link_app.S"));
 /// The rust entry-point of os
 pub fn rust_main() -> ! {
   clear_bss();
+  println!("[kernel] ---- Kernel program startup ----");
 
-  println!("[kernel] Kernel program startup");
-
+  println!(
+    "[kernel] ---- Initialize heap,frame allocator; kernel space;  ----"
+  );
   mm::init();
-  println!("[kernel] back to world!");
+
+  println!("[kernel] --- memory manager testing ---");
   mm::remap_test();
 
+  println!("[kernel] --- Initialize Trap entry ---");
   trap::init();
 
   // setting `sie.stie` interruption won't be masked.
   trap::enable_timer_interrupt();
 
   // setting a 10 ms time counter.
+  println!("[kernel] --- set up timer ---");
   timer::set_next_trigger();
 
+  println!("[kernel] --- run the first task ---");
   task::run_first_task();
 
   panic!("Unreachable in rust_main!");

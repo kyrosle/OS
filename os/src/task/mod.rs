@@ -185,6 +185,19 @@ impl TaskManager {
       let current_task_cx_ptr =
         &mut inner.tasks[current].task_cx as *mut TaskContext;
       let next_task_cx_ptr = &inner.tasks[next].task_cx as *const TaskContext;
+
+      // debug all the tasks status:
+      let tasks = inner.tasks.iter().fold(Vec::<usize>::new(), |mut v, t| {
+        let status = match t.task_status {
+          TaskStatus::Ready => 0,
+          TaskStatus::Running => 1,
+          TaskStatus::Exited => 2,
+        };
+        v.push(status);
+        v
+      });
+      println!("[DEBUG] {:?}", tasks);
+
       drop(inner);
       // before this, we should drop local variables that must be dropped manually
       unsafe {
@@ -192,9 +205,8 @@ impl TaskManager {
       }
       // go back to user mode
     } else {
-      println!("All applications completed!");
-
       println!("task switch time: {} us", get_switch_time_count());
+      panic!("All applications completed!");
     }
   }
 
