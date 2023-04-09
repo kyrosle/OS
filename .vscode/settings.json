@@ -8,6 +8,7 @@
     "bitflags",
     "dealloc",
     "ebss",
+    "ekernel",
     "idxs",
     "kstack",
     "mtvec",
@@ -29,7 +30,9 @@
     "syscalls",
     "unmap",
     "unmapping",
-    "Virt"
+    "usec",
+    "Virt",
+    "xstate"
   ],
   "rust-analyzer.showUnlinkedFileNotification": false,
 }

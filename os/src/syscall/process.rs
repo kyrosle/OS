@@ -5,6 +5,13 @@ use crate::{
   timer::get_time_us,
 };
 
+#[repr(C)]
+#[derive(Debug)]
+pub struct TimeVal {
+  pub sec: usize,
+  pub usec: usize,
+}
+
 /// task exits and submit an exit code.
 pub fn sys_exit(xstate: i32) -> ! {
   println!("[kernel] Application exited with code {}", xstate);

@@ -18,6 +18,11 @@ pub use page_table::*;
 /// initialize heap allocator, frame allocator, and kernel space.
 pub fn init() {
   heap_allocator::init_heap();
+  println!("---- heap allocator testing ----");
+  heap_allocator::heap_test();
+
   frame_allocator::init_frame_allocator();
+  // println!("---- frame allocator testing ----");
+  // frame_allocator::frame_allocator_test();
   KERNEL_SPACE.exclusive_access().activate();
 }

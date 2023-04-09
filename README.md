@@ -209,18 +209,139 @@ pub struct TaskContext {
 A `TaskControlBlock` contains: `TaskStatus`, `TaskContext`.
 
 Interrupt of RISC-V:
+
 - Software Interrupt
 - Timer Interrupt
 - External Interrupt
 
-In the privilege level of S, interrupt mask - CSR has `sstatus` and `sie`. 
+In the privilege level of S, interrupt mask - CSR has `sstatus` and `sie`.
 `sie` has three type of interrupts: `ssie` / `stie` / `seie`.
 
 when the interrupt happen,
+
 - `sstatus.sie` will save at `sstatus.spie`, and `sstatus.sie` clear as zero.
-- after completion of interrupt handler, `sret` will return to the place interrupted by the interrupt and continue execution. Hardware will recover the `sstatus.sie` with the value of `sstatus.spie`. 
+- after completion of interrupt handler, `sret` will return to the place interrupted by the interrupt and continue execution. Hardware will recover the `sstatus.sie` with the value of `sstatus.spie`.
 
 In RISC-V 64 architectures, there is a 64-bit counter CSR `mtime`.
 another 64-bit counter CSR `mtimecmp`, if the value of `mtime` is exceed `mtimecmp`, it will cause a **timer interrupt**.
 
 ![](pictures/TimesharingOS.png)
+
+### Address Space
+
+Rust data structures in heap:
+
+- `*const T / *mut T`
+- `&T / &mut T`
+- `Box<T>`
+- `Rc<T> / Arc<T>`
+- `RefCell<T>`
+- `Mutex<TJk>`
+
+Smart Pointer / Container memory layout:  
+![](pictures/memory_layout.png)
+
+using the crate `buddy_system_allocator` as heap allocator. and use `#[global_allocator]` for Semantic items tagged.
+
+`buddy_system_allocator::LockedHeap` has implemented `GlobalAlloc` interface.
+
+we use a static mut bytes array(in kernel .bss segment), as the heap area.
+
+Address Virtualization:
+
+![](pictures/address_virtualization.png)
+
+with the help of hardware:
+
+```
+virtual address -> CPU.MMU(Memory Management Unit) -> Physical address
+                        Address Translation
+```
+
+Segmented memory management:
+![](pictures/segment_memory_management.png)
+
+- Every application address size limited to a const number `bound`, that is, each application virtual address range from $[0, bound)$.
+- physical address was split into several slots of the same size, except of the kernel reserved space.
+- Each slot has the base address and the visitable range $[base, base + bound)$.
+
+In this case, MMU only need two registers: `base` and `bound`. And use a `Bitmap` to show the slots using status.
+
+However, it may waste too much memory resources(Internal Fragment).
+
+do some improve with different base/bound:
+![](pictures/segment_memory_mangement_plus.png)
+however, it also may waste too much memory(External Fragment).
+
+Paged memory management:
+![](pictures/page_memory_management.png)
+
+- kernel do physical memory manage base on page.
+- each application virtual address can be divided into serval virtual page.
+- available physical memory are divided into serval physical as Frame.
+- each application address are consist of serval virtual pages.
+
+Concept:
+
+- VPN: Virtual Page Number
+- PPN: Physical Page Number
+- Each application has his own `Page Table`(existing in memory, managed by kernel), recording each virtual page mapping the actual physical Frame.
+- The `Page Table`, Key is VPN, Value is PPN.
+- set the protection bit `rwx`
+
+```
+(VPN, Offset) -> MMU -> (PPN, Offset)
+```
+
+Here, we use `SV39` provided by riscv architecture.
+
+In default, MMU is disabled.Modify a CSR `satp` to enable it.
+After that, address which S mode or U mode would be all consider as a virtual address.It needs to translate into a physical address by MMU, and then visit the physical memory.And address in M mode would be consider as physical address.
+
+`satp`:
+![](pictures/satp.png)
+
+- MODE: 0-visit physical address/8-Sv39
+- ASID: Address space identifier.
+- PPN: The physical page number where the root page table is located.
+
+Address Format:
+![](pictures/address_format.png)
+
+PTE, Page Table Entry:
+![](pictures/page_table.png)
+
+- V(Valid): valid if current bit is 1
+- R(Read)/W(Write)/X(Execute)
+- U(User)
+- G
+- A(Accessed)
+- D(Dirty)
+
+Multilevel page table:
+
+Allocation on demand, and using the `trie` algorithm.
+
+- v == 0 => nullptr
+- v == 1 && R/W/X == 0 => valid page table entry, containing ptr point at next page table entry.
+- v == 1 && R/W/X |!= 0 => valid page table entry, containing the physical page number corresponding to the virtual address.
+
+sv39 address transformation:
+![](pictures/sv39_address_transfrom.png)
+
+TLB, Translation Lookaside Buffer
+
+`sfence.vma` + virtual address, only refresh this relevant mapping.
+
+In enabling the Page management, when kernel code want to visit a virtual address, it should leave it to MMU to do physical address conversion. Giving each application kernel stack, and a `Trampoline`.
+
+![](pictures/kernel_address_add_hf.png.png)
+
+Each kernel stack would reserve a `Guard Page` as empty hole.
+
+![](pictures/kernel_address_add_lf.png)
+
+Application address space:
+![](pictures/application_address_space.png)
+
+[More About Address Space](http://rcore-os.cn/rCore-Tutorial-Book-v3/chapter4/7more-as.html)
