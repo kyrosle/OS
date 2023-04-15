@@ -229,6 +229,8 @@ another 64-bit counter CSR `mtimecmp`, if the value of `mtime` is exceed `mtimec
 
 ### Address Space
 
+![](pictures/address_space_os.png)
+
 Rust data structures in heap:
 
 - `*const T / *mut T`
@@ -345,3 +347,9 @@ Application address space:
 ![](pictures/application_address_space.png)
 
 [More About Address Space](http://rcore-os.cn/rCore-Tutorial-Book-v3/chapter4/7more-as.html)
+
+### Process os
+
+![](pictures/process_os.png.png)
+
+![](pictures/process_os_2.png)
