@@ -1,7 +1,10 @@
 {
   "python.formatting.provider": "yapf",
   "rust-analyzer.checkOnSave.allTargets": false,
-  "rust-analyzer.cargo.target": "riscv64gc-unknown-none-elf",
+  "rust-analyzer.checkOnSave.extraArgs": [
+    "--target",
+    "riscv64gc-unknown-none-elf"
+  ],
   "python.analysis.typeCheckingMode": "basic",
   "cSpell.words": [
     "alltraps",

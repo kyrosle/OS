@@ -37,6 +37,8 @@ mod task;
 mod timer;
 mod trap;
 
+mod qemu;
+
 // Embed this assembly code.
 global_asm!(include_str!("entry.asm"));
 // this asm source file is created by build.rs
@@ -56,6 +58,9 @@ pub fn rust_main() -> ! {
   println!("[kernel] --- memory manager testing ---");
   mm::remap_test();
 
+  task::add_initproc();
+  println!("---- after initproc ----");
+
   println!("[kernel] --- Initialize Trap entry ---");
   trap::init();
 
@@ -66,8 +71,10 @@ pub fn rust_main() -> ! {
   println!("[kernel] --- set up timer ---");
   timer::set_next_trigger();
 
+  loader::list_apps();
+
   println!("[kernel] --- run the first task ---");
-  task::run_first_task();
+  task::run_tasks();
 
   panic!("Unreachable in rust_main!");
 }

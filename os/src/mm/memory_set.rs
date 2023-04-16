@@ -31,10 +31,12 @@ extern "C" {
 }
 
 lazy_static! {
+  /// a memory set instance through `lazy_static!` managing kernel space
   pub static ref KERNEL_SPACE: Arc<UPSafeCell<MemorySet>> =
     Arc::new(unsafe { UPSafeCell::new(MemorySet::new_kernel()) });
 }
 
+/// map area structure, controls a contiguous piece of virtual memory
 pub struct MapArea {
   vpn_range: VPNRange,
   data_frames: BTreeMap<VirtPageNum, FrameTracker>,
@@ -57,6 +59,18 @@ impl MapArea {
       data_frames: BTreeMap::new(),
       map_type,
       map_perm,
+    }
+  }
+
+  pub fn from_another(another: &MapArea) -> Self {
+    Self {
+      vpn_range: VPNRange::new(
+        another.vpn_range.get_start(),
+        another.vpn_range.get_end(),
+      ),
+      data_frames: BTreeMap::new(),
+      map_type: another.map_type,
+      map_perm: another.map_perm,
     }
   }
 
@@ -128,20 +142,28 @@ pub enum MapType {
 }
 
 bitflags! {
+  #[derive(Copy, Clone)]
+  /// map permissions corresponding to that in pte: `R W X U`
   pub struct MapPermission: u8 {
+    /// Readable
     const R = 1<<1;
+    /// Writable
     const W = 1<<2;
+    /// Executable
     const X = 1<<3;
+    /// Accessible in U mode
     const U = 1<<4;
   }
 }
 
+/// memory set structure, controls virtual-memory space
 pub struct MemorySet {
   page_table: PageTable,
   areas: Vec<MapArea>,
 }
 
 impl MemorySet {
+  /// Create an empty `MemorySet`
   pub fn new_bare() -> Self {
     MemorySet {
       page_table: PageTable::new(),
@@ -149,10 +171,12 @@ impl MemorySet {
     }
   }
 
+  /// Get page table `root_ppn`
   pub fn token(&self) -> usize {
     self.page_table.token()
   }
 
+  /// Assume that no conflicts.
   pub fn insert_framed_area(
     &mut self,
     start_va: VirtAddr,
@@ -163,6 +187,19 @@ impl MemorySet {
       MapArea::new(start_va, end_va, MapType::Framed, permission),
       None,
     );
+  }
+
+  /// Remove `MapArea` that starts with `start_vpn`
+  pub fn remove_area_with_start_vpn(&mut self, start_vpn: VirtPageNum) {
+    if let Some((idx, area)) = self
+      .areas
+      .iter_mut()
+      .enumerate()
+      .find(|(_, area)| area.vpn_range.get_start() == start_vpn)
+    {
+      area.unmap(&mut self.page_table);
+      self.areas.remove(idx);
+    }
   }
 
   fn push(&mut self, mut map_area: MapArea, data: Option<&[u8]>) {
@@ -325,6 +362,28 @@ impl MemorySet {
     )
   }
 
+  /// Clone a same `MemorySet`
+  pub fn from_existed_user(user_space: &MemorySet) -> MemorySet {
+    let mut memory_set = Self::new_bare();
+    // map trampoline
+    memory_set.map_trampoline();
+    // copy data sections/trap_context/user_stack
+    for area in user_space.areas.iter() {
+      let new_area = MapArea::from_another(area);
+      memory_set.push(new_area, None);
+      // copy data from another space
+      for vpn in area.vpn_range {
+        let src_ppn = user_space.translate(vpn).unwrap().ppn();
+        let dst_ppn = memory_set.translate(vpn).unwrap().ppn();
+        dst_ppn
+          .get_bytes_array()
+          .copy_from_slice(src_ppn.get_bytes_array());
+      }
+    }
+    memory_set
+  }
+ 
+  /// Refresh TLB with `sfence.vma`
   pub fn activate(&self) {
     let satp = self.page_table.token();
     unsafe {
@@ -333,8 +392,14 @@ impl MemorySet {
     }
   }
 
+  /// Translate through page table
   pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
     self.page_table.translate(vpn)
+  }
+
+  /// Remove all `MapArea`
+  pub fn recycle_data_pages(&mut self) {
+    self.areas.clear();
   }
 }
 

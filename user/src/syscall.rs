@@ -1,9 +1,14 @@
 use core::arch::asm;
 
+const SYSCALL_READ: usize = 63;
 const SYSCALL_WRITE: usize = 64;
 const SYSCALL_EXIT: usize = 93;
 const SYSCALL_YIELD: usize = 124;
 const SYSCALL_GET_TIME: usize = 169;
+const SYSCALL_GETPID: usize = 172;
+const SYSCALL_FORK: usize = 220;
+const SYSCALL_EXEC: usize = 221;
+const SYSCALL_WAITPID: usize = 260;
 
 fn syscall(id: usize, args: [usize; 3]) -> isize {
   let mut ret: isize;
@@ -21,6 +26,25 @@ fn syscall(id: usize, args: [usize; 3]) -> isize {
     );
   }
   ret
+}
+
+/// ### Function:
+///   Read the data to the buffer in memory from a file.
+///
+/// ### Parameter:
+///   - `fd` represents the file descriptor of the file to be read;
+///   - `buf` represents the starting address of the buffer in memory(fat pointer, containing the start of the buffer address and the buffer size);
+///   - `len` indicates the length of the buffer in memory.
+///
+/// ### Return value:
+///   Returns the length of a successful read.
+///
+/// syscall ID: 64
+pub fn sys_read(fd: usize, buffer: &mut [u8]) -> isize {
+  syscall(
+    SYSCALL_READ,
+    [fd, buffer.as_mut_ptr() as usize, buffer.len()],
+  )
 }
 
 /// ### Function:
@@ -69,4 +93,57 @@ pub fn sys_yield() -> isize {
 /// syscall ID: 169
 pub fn sys_get_time() -> isize {
   syscall(SYSCALL_GET_TIME, [0, 0, 0])
+}
+
+/// ### Function:
+///   Get the current process pid.
+/// ### Return value:
+///   Returns current process pid.
+///
+/// syscall ID: 172
+pub fn sys_getpid() -> isize {
+  syscall(SYSCALL_GETPID, [0, 0, 0])
+}
+
+/// ### Function:
+///   The current process forks out a child process.
+/// ### Return value:
+///   Returns 0 for the child process, and returns the PID of the child process for the current process.
+///
+/// syscall ID: 220
+pub fn sys_fork() -> isize {
+  syscall(SYSCALL_FORK, [0, 0, 0])
+}
+
+/// ### Function:
+///   Empty the address space of the current process and load a specific executable file,
+///     return to user mode and start its execution.
+/// ### Parameter:
+///   path:  The name of the executable to load.
+/// ### Return value:
+///   Returns -1 if there is an error (if no executable matching the name is found),
+///     otherwise it should not be returned
+///
+/// syscall ID: 221
+pub fn sys_exec(path: &str) -> isize {
+  syscall(SYSCALL_EXEC, [path.as_ptr() as usize, 0, 0])
+}
+
+/// ### Function:
+///   The current process waits for a child process to become a zombie process,
+///   reclaiming all its resources and collecting its return value.
+/// ### Parameters:
+///   - pid: Represents the process ID of the child process to wait,
+///           if -1, it means waiting for any child process.
+///   - exit_code: Indicates the address to save the return value of the child process.
+///           If this address is 0, it means that it does not need to be saved.
+/// ### Return value:
+///   Returns -1 if the child process to wait for does not exist;
+///     Otherwise returns -2 if none of the child processes to wait for have ended.
+///     Otherwise return the process ID of the ended child process
+
+///
+/// syscall ID: 260
+pub fn sys_waitpid(pid: isize, exit_code: *mut i32) -> isize {
+  syscall(SYSCALL_WAITPID, [pid as usize, exit_code as usize, 0])
 }
