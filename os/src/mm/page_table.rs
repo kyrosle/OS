@@ -157,8 +157,6 @@ impl PageTable {
       let aligned_pa: PhysAddr = pte.ppn().into();
       let offset = va.page_offset();
       let aligned_pa_usize: usize = aligned_pa.into();
-      let offset = va.page_offset();
-      let aligned_pa_usize: usize = aligned_pa.into();
       (aligned_pa_usize + offset).into()
     })
   }
@@ -204,7 +202,6 @@ pub fn translated_byte_buffer(
 pub fn translated_str(token: usize, ptr: *const u8) -> String {
   let page_table = PageTable::from_token(token);
   let mut string = String::new();
-  let mut va = ptr as usize;
   let mut va = ptr as usize;
   loop {
     let ch: u8 = *(page_table

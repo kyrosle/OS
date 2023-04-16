@@ -7,7 +7,7 @@ run:
 
 # comamnd instructions: \
 http://rcore-os.cn/rCore-Tutorial-Book-v3/chapter1/3first-instruction-in-kernel1.html#qemu
-	qemu-system-riscv64 \
+	@qemu-system-riscv64 \
     -machine virt \
 		-nographic \
     -bios ../bootloader/rustsbi-qemu.bin \

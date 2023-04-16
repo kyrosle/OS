@@ -1,11 +1,13 @@
-use core::arch::asm;
+use core::{arch::asm, iter::Map};
 
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use lazy_static::lazy_static;
 use riscv::register::satp;
 
 use crate::{
-  config::{MEMORY_END, PAGE_SIZE, TRAMPOLINE, TRAP_CONTEXT, USER_STACK_SIZE},
+  config::{
+    MEMORY_END, MMIO, PAGE_SIZE, TRAMPOLINE, TRAP_CONTEXT, USER_STACK_SIZE,
+  },
   mm::address::StepByOne,
   sync::UPSafeCell,
 };
@@ -282,6 +284,18 @@ impl MemorySet {
       ),
       None,
     );
+    println!("mapping memory-mapped registers");
+    for pair in MMIO {
+      memory_set.push(
+        MapArea::new(
+          pair.0.into(),
+          (pair.0 + pair.1).into(),
+          MapType::Identical,
+          MapPermission::R | MapPermission::W,
+        ),
+        None,
+      )
+    }
     memory_set
   }
 
@@ -382,7 +396,7 @@ impl MemorySet {
     }
     memory_set
   }
- 
+
   /// Refresh TLB with `sfence.vma`
   pub fn activate(&self) {
     let satp = self.page_table.token();

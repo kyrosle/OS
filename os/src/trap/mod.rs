@@ -105,7 +105,7 @@ pub fn trap_handler() -> ! {
       let result = syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12]]) as usize;
       // cx is changed during sys_exec, so we have to call it again
       cx = current_trap_cx();
-      cx.x[10] = result as usize;
+      cx.x[10] = result;
     }
     Trap::Exception(Exception::StoreFault)
     | Trap::Exception(Exception::StorePageFault)
