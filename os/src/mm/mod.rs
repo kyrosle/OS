@@ -23,8 +23,9 @@ pub fn init() {
   println!("---- heap allocator testing end ----");
 
   frame_allocator::init_frame_allocator();
-  // println!("---- frame allocator testing ----");
-  // frame_allocator::frame_allocator_test();
-  println!("1");
+  println!("---- frame allocator testing start ----");
+  frame_allocator::frame_allocator_test();
+  println!("---- frame allocator testing end ----");
+
   KERNEL_SPACE.exclusive_access().activate();
 }

@@ -2,8 +2,9 @@ run:
 	make -C user build
 	make -C os run
 
-gdb:
-	make -C user build
+gdbr:
+	make -C os rungdb
+gdbs:
 	make -C os gdb
 
 clean: 

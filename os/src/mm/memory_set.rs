@@ -1,4 +1,4 @@
-use core::{arch::asm, iter::Map};
+use core::arch::asm;
 
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use lazy_static::lazy_static;
@@ -144,7 +144,6 @@ pub enum MapType {
 }
 
 bitflags! {
-  #[derive(Copy, Clone)]
   /// map permissions corresponding to that in pte: `R W X U`
   pub struct MapPermission: u8 {
     /// Readable

@@ -13,7 +13,7 @@ http://rcore-os.cn/rCore-Tutorial-Book-v3/chapter1/3first-instruction-in-kernel1
     -bios ../bootloader/rustsbi-qemu.bin \
     -device loader,file=target/riscv64gc-unknown-none-elf/release/os.bin,addr=0x80200000 \
 
-run-gdb:
+rungdb:
 	cargo build --release
 
 	rust-objcopy \

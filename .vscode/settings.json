@@ -1,5 +1,6 @@
 {
   "python.formatting.provider": "yapf",
+  // "terminal.integrated.defaultProfile.windows": "PowerShell",
   "rust-analyzer.checkOnSave.allTargets": false,
   "rust-analyzer.checkOnSave.extraArgs": [
     "--target",
@@ -10,12 +11,14 @@
     "alltraps",
     "bitflags",
     "dealloc",
+    "Deque",
     "ebss",
     "ekernel",
     "idxs",
     "kstack",
     "mtvec",
     "noreturn",
+    "putchar",
     "repr",
     "riscv",
     "rodata",

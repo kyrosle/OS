@@ -22,19 +22,6 @@ const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS;
 //  +---------------------------------------------+-------------+
 //                          PPN                        12-bit
 //
-// Page Table Entry, PTE
-// 63      54 53    28 27    19 18    10 9   8 7 6 5 4 3 2 1 0
-//  +--------+--------+--------+--------+-----+-+-+-+-+-+-+-+-+
-//  |Reserved| PPN[2] | PPN[1] | PPN[0] | RSW |D|A|G|U|X|W|R|V|
-//  +--------+--------+--------+--------+-----+-+-+-+-+-+-+-+-+
-//     10        26       9         9      2   1 1 1 1 1 1 1 1
-//                                             | |   | | | | |-> validated
-//                                             D Acc U | | |-> Read
-//                                             i ess S | |-> Write
-//                                             r ed  E |-> Execute
-//                                             t     R
-//                                             y
-
 // ---------- Definitions -----------
 
 /// physical address

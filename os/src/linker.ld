@@ -61,7 +61,7 @@ SECTIONS
   /* the end of kernel address */
   ekernel = .;
 
-   /* output section */
+  /* output section */
   /* filter */
   /* discard the following segments */
   /* reducing the size of the output file */
