@@ -60,6 +60,8 @@ lazy_static! {
 
 #[allow(unused)]
 /// get app data from name
+///
+/// If the application name doesn't being set in `APP_NAMES`, it would happen nothing(Should be fixed).
 pub fn get_app_data_by_name(name: &str) -> Option<&'static [u8]> {
   let num_app = get_num_app();
   (0..num_app)
