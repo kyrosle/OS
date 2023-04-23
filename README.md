@@ -1,3 +1,18 @@
+<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
+
+<!-- code_chunk_output -->
+
+- [rCore on Windows platform](#rcore-on-windows-platform)
+  - [Installation](#installation)
+  - [chapter](#chapter)
+    - [Basic environment to run application](#basic-environment-to-run-application)
+    - [With batch system](#with-batch-system)
+    - [Multiprogramming and Time-Sharing Multitasking](#multiprogramming-and-time-sharing-multitasking)
+    - [Address Space](#address-space)
+    - [Process os](#process-os)
+
+<!-- /code_chunk_output -->
+
 # rCore on Windows platform
 
 ## Installation
