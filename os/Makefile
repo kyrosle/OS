@@ -7,10 +7,10 @@ run:
 
 # comamnd instructions: \
 http://rcore-os.cn/rCore-Tutorial-Book-v3/chapter1/3first-instruction-in-kernel1.html#qemu
-	@qemu-system-riscv64 \
+	qemu-system-riscv64 \
     -machine virt \
 		-nographic \
-    -bios ../bootloader/rustsbi-qemu.bin \
+    -bios ../bootloader/rustsbi-qemu-new.bin \
     -device loader,file=target/riscv64gc-unknown-none-elf/release/os.bin,addr=0x80200000 \
 
 rungdb:
@@ -23,7 +23,7 @@ rungdb:
 	qemu-system-riscv64 \
     -machine virt \
     -nographic \
-    -bios ../bootloader/rustsbi-qemu.bin \
+    -bios ../bootloader/rustsbi-qemu-new.bin \
 		-device loader,file=target/riscv64gc-unknown-none-elf/release/os.bin,addr=0x80200000 \
 		-s -S
 
