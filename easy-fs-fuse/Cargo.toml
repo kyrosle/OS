@@ -1,0 +1,11 @@
+[package]
+name = "easy-fs-fuse"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+easyfs = { path = "../easy-fs" }
+clap = "4.2.5"
+# easyfs = { path = "/home/kyros/WorkStations/TempStorage/rCore-Tutorial-v3/easy-fs" }
+rand = "0.8.0"

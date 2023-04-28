@@ -1,2 +1,4 @@
 /os/target
 /user/target
+/easy-fs/target
+/easy-fs-fuse/target

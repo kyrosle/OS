@@ -1,5 +1,7 @@
 use core::arch::asm;
 
+const SYSCALL_OPEN: usize = 56;
+const SYSCALL_CLOSE: usize = 57;
 const SYSCALL_READ: usize = 63;
 const SYSCALL_WRITE: usize = 64;
 const SYSCALL_EXIT: usize = 93;
@@ -26,6 +28,41 @@ fn syscall(id: usize, args: [usize; 3]) -> isize {
     );
   }
   ret
+}
+
+/// ### Function:
+///     Open a regular file and return a file descriptor that can access it.
+///
+/// ### Parameter:
+///   - `path` represents the name of file wanna to open.
+///   - `flags` flags describing(as fellow) open files.
+///
+/// | Flags | Value  | File ModeDescription                                                                |
+/// | ----- | ------ | ----------------------------------------------------------------------------------- |
+/// | 0     | RDONLY | File is opened in read-only mode                                                    |
+/// | 0x001 | WRONLY | File is opened in write-only mode                                                   |
+/// | 0x002 | RDWR   | File is opened in read-write mode                                                   |
+/// | 0x200 | CREATE | File is created if it does not exist, and its size is set to 0 if it already exists |
+/// | 0x400 | TRUNC  | File is opened with its contents cleared and its size set to 0                      |
+///
+/// ### Return value:
+///   Returns a file descriptor if success, otherwise will return -1 cos of the file may not exist.
+///
+/// syscall ID: 56
+pub fn sys_open(path: &str, flags: u32) -> isize {
+  syscall(SYSCALL_OPEN, [path.as_ptr() as usize, flags as usize, 0])
+}
+
+/// ### Function:
+///   Close a file in current process.
+///
+/// ### Parameter:
+///   - `fd` the file descriptor should be closed.
+///
+/// ### Return:
+///   if the closing success return 0, otherwise return -1, cos of the file descriptor doesn't match a opening file.
+pub fn sys_close(fd: usize) -> isize {
+  syscall(SYSCALL_CLOSE, [fd, 0, 0])
 }
 
 /// ### Function:

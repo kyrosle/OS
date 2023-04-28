@@ -561,3 +561,26 @@ Recycling the resources by calling `exit_current_and_run_next()`.
 
 setting child process status as `Zombie`, and then it will be recycled by its father
 process with `waitpid`.
+
+```mermaid
+graph TD;
+    A[Easy-fs File System] --> B[Boot Block];
+    A --> C[Super Block];
+    A --> D[Block Bitmap];
+    A --> E[Node Block];
+    A --> F[Data Block];
+    C --> G[Node Group];
+    C --> H[Data Group];
+    G --> I[Node 1];
+    G --> J[Node 2];
+    G --> K[...];
+    H --> L[Data Block 1];
+    H --> M[Data Block 2];
+    H --> N[...];
+```
+
+In the diagram above, the Easy-fs file system consists of a boot block, a super block, a block bitmap, node blocks, and data blocks. The boot block is used to boot the file system, the super block contains metadata information about the file system, the block bitmap is used to record the usage of blocks, the node blocks are used to store directory and file information, and the data blocks are used to store the actual data of files.
+
+The super block contains information about node groups and data groups. Node groups are used to store node blocks, while data groups are used to store data blocks. Node blocks contain metadata information about files and directories, such as file name, file size, creation time, etc. Data blocks store the actual data content of files.
+
+Overall, the Easy-fs file system adopts a simple and effective design approach by storing the metadata and data of the file system in different areas to improve the reliability and performance of the file system.

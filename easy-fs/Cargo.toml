@@ -1,0 +1,11 @@
+[package]
+name = "easyfs"
+version = "0.1.0"
+edition = "2021"
+
+[profilej.release]
+debug = true
+
+[dependencies]
+spin = "0.9.8"
+lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
