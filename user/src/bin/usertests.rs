@@ -9,6 +9,8 @@ extern crate user_lib;
 
 // item of TESTS : app_name(argv_0), argv_1, argv_2, argv_3, exit_code
 static SUCC_TESTS: &[(&str, &str, &str, &str, i32)] = &[
+  ("filetest_simple\0", "\0", "\0", "\0", 0),
+  ("cat_filea\0", "\0", "\0", "\0", 0),
   ("exit\0", "\0", "\0", "\0", 0),
   ("fantastic_text\0", "\0", "\0", "\0", 0),
   ("forktest_simple\0", "\0", "\0", "\0", 0),
@@ -16,6 +18,7 @@ static SUCC_TESTS: &[(&str, &str, &str, &str, i32)] = &[
   ("forktest2\0", "\0", "\0", "\0", 0),
   ("forktree\0", "\0", "\0", "\0", 0),
   ("hello_world\0", "\0", "\0", "\0", 0),
+  ("huge_write\0", "\0", "\0", "\0", 0),
   ("matrix\0", "\0", "\0", "\0", 0),
   ("sleep_simple\0", "\0", "\0", "\0", 0),
   ("sleep\0", "\0", "\0", "\0", 0),
@@ -27,7 +30,9 @@ static FAIL_TESTS: &[(&str, &str, &str, &str, i32)] =
 
 use user_lib::{exec, fork, waitpid};
 
-fn run_tests(tests: &[(&str, &str, &str, &str, i32)]) -> i32 {
+fn run_tests(
+  tests: &[(&str, &str, &str, &str, i32)],
+) -> i32 {
   let mut pass_num = 0;
   let mut arr: [*const u8; 4] = [
     core::ptr::null::<u8>(),
@@ -60,7 +65,7 @@ fn run_tests(tests: &[(&str, &str, &str, &str, i32)]) -> i32 {
       arr[2] = core::ptr::null::<u8>();
       arr[3] = core::ptr::null::<u8>();
     }
-    println!("---- fork {} application ----", test.0);
+
     let pid = fork();
     if pid == 0 {
       exec(test.0);
@@ -71,12 +76,12 @@ fn run_tests(tests: &[(&str, &str, &str, &str, i32)]) -> i32 {
       assert_eq!(pid, wait_pid);
       if exit_code == test.4 {
         // summary apps with  exit_code
-        pass_num += 1;
+        pass_num = pass_num + 1;
       }
       println!(
-        "\x1b[32mUsertests: Test {} in Process {} exited with code {}\x1b[0m",
-        test.0, pid, exit_code
-      );
+                "\x1b[32mUsertests: Test {} in Process {} exited with code {}\x1b[0m",
+                test.0, pid, exit_code
+            );
     }
   }
   pass_num
@@ -86,7 +91,9 @@ fn run_tests(tests: &[(&str, &str, &str, &str, i32)]) -> i32 {
 pub fn main() -> i32 {
   let succ_num = run_tests(SUCC_TESTS);
   let err_num = run_tests(FAIL_TESTS);
-  if succ_num == SUCC_TESTS.len() as i32 && err_num == FAIL_TESTS.len() as i32 {
+  if succ_num == SUCC_TESTS.len() as i32
+    && err_num == FAIL_TESTS.len() as i32
+  {
     println!(
             "{} of sueecssed apps, {} of failed apps run correctly. \nUsertests passed!",
             SUCC_TESTS.len(),
@@ -109,5 +116,5 @@ pub fn main() -> i32 {
     );
   }
   println!(" Usertests failed!");
-  -1
+  return -1;
 }

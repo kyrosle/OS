@@ -5,10 +5,10 @@ use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
 use lazy_static::lazy_static;
 
-use crate::{config::MEMORY_END, mm::address::PhysAddr, sync::UPSafeCell};
+use crate::{config::MEMORY_END, sync::UPSafeCell};
 type FrameAllocatorImpl = StackFrameAllocator;
 
-use super::address::PhysPageNum;
+use super::{PhysAddr, PhysPageNum};
 
 lazy_static! {
   /// frame allocator instance through lazy_static!
@@ -42,7 +42,7 @@ pub fn frame_alloc() -> Option<FrameTracker> {
 }
 
 /// deallocate a frame
-fn frame_dealloc(ppn: PhysPageNum) {
+pub fn frame_dealloc(ppn: PhysPageNum) {
   FRAME_ALLOCATOR.exclusive_access().dealloc(ppn);
 }
 
@@ -56,6 +56,10 @@ impl StackFrameAllocator {
   pub fn init(&mut self, l: PhysPageNum, r: PhysPageNum) {
     self.current = l.0;
     self.end = r.0;
+    println!(
+      "last {} Physical Frames.",
+      self.end - self.current
+    );
   }
 }
 
@@ -82,8 +86,13 @@ impl FrameAllocator for StackFrameAllocator {
   fn dealloc(&mut self, ppn: PhysPageNum) {
     let ppn = ppn.0;
     // validity check
-    if ppn >= self.current || self.recycled.iter().any(|&v| v == ppn) {
-      panic!("Frame ppn={:#x} has not been allocated!", ppn);
+    if ppn >= self.current
+      || self.recycled.iter().any(|&v| v == ppn)
+    {
+      panic!(
+        "Frame ppn={:#x} has not been allocated!",
+        ppn
+      );
     }
     // recycle
     self.recycled.push(ppn);
@@ -108,7 +117,10 @@ impl FrameTracker {
 
 impl Debug for FrameTracker {
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-    f.write_fmt(format_args!("FrameTracker:PPN={:#x}", self.ppn.0))
+    f.write_fmt(format_args!(
+      "FrameTracker:PPN={:#x}",
+      self.ppn.0
+    ))
   }
 }
 

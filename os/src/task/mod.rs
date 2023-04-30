@@ -15,8 +15,8 @@
 //! Be careful when you see `__switch` ASM function in `switch.S`. Control flow around this function
 //! might not be what you expect.
 
-use crate::loader::get_app_data_by_name;
-use crate::qemu::QEMUExit;
+use crate::fs::{open_file, OpenFlags};
+use crate::sbi::shutdown;
 use crate::timer::get_time_ms;
 use alloc::sync::Arc;
 use lazy_static::lazy_static;
@@ -60,7 +60,8 @@ pub fn suspend_current_and_run_next() {
 
   // ---- access current TCB exclusively
   let mut task_inner = task.inner_exclusive_access();
-  let task_cx_ptr = &mut task_inner.task_cx as *mut TaskContext;
+  let task_cx_ptr =
+    &mut task_inner.task_cx as *mut TaskContext;
   // Change status to Ready
   task_inner.task_status = TaskStatus::Ready;
   drop(task_inner);
@@ -87,9 +88,11 @@ pub fn exit_current_and_run_next(exit_code: i32) {
       exit_code
     );
     if exit_code != 0 {
-      crate::qemu::QEMU_EXIT_HANDLE.exit_failure();
+      // crate::qemu::QEMU_EXIT_HANDLE.exit_failure();
+      shutdown(true);
     } else {
-      crate::qemu::QEMU_EXIT_HANDLE.exit_success();
+      // crate::qemu::QEMU_EXIT_HANDLE.exit_success();
+      shutdown(false);
     }
   }
 
@@ -103,9 +106,11 @@ pub fn exit_current_and_run_next(exit_code: i32) {
 
   // ++++ access initproc TCB exclusively
   {
-    let mut initproc_inner = INITPROC.inner_exclusive_access();
+    let mut initproc_inner =
+      INITPROC.inner_exclusive_access();
     for child in inner.children.iter() {
-      child.inner_exclusive_access().parent = Some(Arc::downgrade(&INITPROC));
+      child.inner_exclusive_access().parent =
+        Some(Arc::downgrade(&INITPROC));
       initproc_inner.children.push(child.clone());
     }
   }
@@ -125,9 +130,11 @@ pub fn exit_current_and_run_next(exit_code: i32) {
 
 lazy_static! {
   /// Global process that init user shell
-  pub static ref INITPROC: Arc<TaskControlBlock> = Arc::new(
-    TaskControlBlock::new(get_app_data_by_name("initproc").unwrap())
-  );
+  pub static ref INITPROC: Arc<TaskControlBlock> = Arc::new({
+    let inode = open_file("initproc", OpenFlags::RDONLY).unwrap();
+    let v = inode.read_all();
+    TaskControlBlock::new(v.as_slice())
+  });
 }
 
 pub fn add_initproc() {

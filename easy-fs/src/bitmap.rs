@@ -9,6 +9,7 @@ fn decomposition(mut bit: usize) -> (usize, usize, usize) {
   (block_pos, bit / 64, bit % 64)
 }
 
+/// 64 * 64 = 4096 bits
 type BitmapBlock = [u64; 64];
 const BLOCK_BITS: usize = BLOCK_SZ * 8;
 

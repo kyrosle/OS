@@ -17,7 +17,9 @@ fn fork_child(cur: &str, branch: char) {
   next[..l].copy_from_slice(cur.as_bytes());
   next[l] = branch as u8;
   if fork() == 0 {
-    fork_tree(core::str::from_utf8(&next[..l + 1]).unwrap());
+    fork_tree(
+      core::str::from_utf8(&next[..l + 1]).unwrap(),
+    );
     yield_();
     exit(0);
   }

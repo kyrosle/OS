@@ -50,7 +50,10 @@ fn syscall(id: usize, args: [usize; 3]) -> isize {
 ///
 /// syscall ID: 56
 pub fn sys_open(path: &str, flags: u32) -> isize {
-  syscall(SYSCALL_OPEN, [path.as_ptr() as usize, flags as usize, 0])
+  syscall(
+    SYSCALL_OPEN,
+    [path.as_ptr() as usize, flags as usize, 0],
+  )
 }
 
 /// ### Function:
@@ -97,7 +100,10 @@ pub fn sys_read(fd: usize, buffer: &mut [u8]) -> isize {
 ///
 /// syscall ID: 64
 pub fn sys_write(fd: usize, buffer: &[u8]) -> isize {
-  syscall(SYSCALL_WRITE, [fd, buffer.as_ptr() as usize, buffer.len()])
+  syscall(
+    SYSCALL_WRITE,
+    [fd, buffer.as_ptr() as usize, buffer.len()],
+  )
 }
 
 /// ### Function:
@@ -181,6 +187,12 @@ pub fn sys_exec(path: &str) -> isize {
 
 ///
 /// syscall ID: 260
-pub fn sys_waitpid(pid: isize, exit_code: *mut i32) -> isize {
-  syscall(SYSCALL_WAITPID, [pid as usize, exit_code as usize, 0])
+pub fn sys_waitpid(
+  pid: isize,
+  exit_code: *mut i32,
+) -> isize {
+  syscall(
+    SYSCALL_WAITPID,
+    [pid as usize, exit_code as usize, 0],
+  )
 }

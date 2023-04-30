@@ -22,7 +22,10 @@ pub fn main() -> i32 {
     println!("ready waiting on parent process!");
     assert_eq!(pid, wait(&mut exit_code));
     assert_eq!(exit_code, 100);
-    println!("child process pid = {}, exit code = {}", pid, exit_code);
+    println!(
+      "child process pid = {}, exit code = {}",
+      pid, exit_code
+    );
     0
   }
 }

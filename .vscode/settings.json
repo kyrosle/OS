@@ -1,11 +1,12 @@
 {
   "python.formatting.provider": "yapf",
-  // "terminal.integrated.defaultProfile.windows": "PowerShell",
-  "rust-analyzer.checkOnSave.allTargets": false,
-  "rust-analyzer.checkOnSave.extraArgs": [
-    "--target",
-    "riscv64gc-unknown-none-elf"
+  "rust-analyzer.cargo.target": "riscv64gc-unknown-none-elf",
+  "rust-analyzer.files.excludeDirs": [
+    // this project using the `clap` which does not support `riscv64gc-unknown-none-elf`
+    "easy-fs-fuse",
+    "_easy-fs-fuse"
   ],
+  "rust-analyzer.checkOnSave.allTargets": false,
   "python.analysis.typeCheckingMode": "basic",
   "cSpell.words": [
     "alltraps",

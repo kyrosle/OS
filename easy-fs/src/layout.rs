@@ -57,6 +57,7 @@ const INDIRECT1_BOUND: usize = DIRECT_BOUND + INODE_INDIRECT1_COUNT;
 /// The upper bound of indirect2 inode indexs
 #[allow(unused)]
 const INDIRECT2_BOUND: usize = INDIRECT1_BOUND + INODE_INDIRECT2_COUNT;
+
 /// Super block of a filesystem
 #[repr(C)]
 pub struct SuperBlock {
@@ -99,6 +100,7 @@ impl SuperBlock {
       data_area_blocks,
     }
   }
+
   /// Check if a super block is valid using efs magic
   pub fn is_valid(&self) -> bool {
     self.magic == EFS_MAGIC
@@ -115,13 +117,18 @@ pub enum DiskInodeType {
 type IndirectBlock = [u32; BLOCK_SZ / 4];
 /// A data block
 type DataBlock = [u8; BLOCK_SZ];
+
 /// A disk inode
 #[repr(C)]
 pub struct DiskInode {
+  /// The total bytes of file/directory
   pub size: u32,
+  // --- Index of the data block of the directory/files contents
   pub direct: [u32; INODE_DIRECT_COUNT],
   pub indirect1: u32,
   pub indirect2: u32,
+  // ---
+  /// Index type (file/directory)
   type_: DiskInodeType,
 }
 

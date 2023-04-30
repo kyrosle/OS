@@ -14,10 +14,10 @@ pub fn main() -> i32 {
   sleep(100);
   let end = get_time();
   println!(
-    "time_msec = {} after sleeping 100 ticks, delta = {}ms!",
-    end,
-    end - start
-  );
+        "time_msec = {} after sleeping 100 ticks, delta = {}ms!",
+        end,
+        end - start
+    );
   println!("r_sleep passed!");
   0
 }

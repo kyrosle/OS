@@ -6,6 +6,10 @@
 //! - [`trap`]: Handles all cases of switching from user-space to the kernel.
 //! - [`task`]: Task management.
 //! - [`syscall`]: System call handling and implementation.
+//! - [`mm`]: Address map using SV39
+//! - [`sync`]: Wrap a static data structure inside it so that we are able to
+//!             access it without any `unsafe`.
+//! - [`fs`]: Separate user from file system with some structure.
 //!
 //! The operating system also starts in this module. Kernel code starts
 //! executing from `entry.asm`, after which [`rust_main()`] is called to
@@ -19,63 +23,53 @@
 #![feature(alloc_error_handler)]
 
 use core::arch::global_asm;
+
 extern crate alloc;
 #[macro_use]
 extern crate bitflags;
 
-mod loader;
 #[macro_use]
 mod console;
 mod config;
+mod fs;
 mod lang_items;
 mod mm;
 mod sbi;
-mod stack_trace;
 mod sync;
 mod syscall;
 mod task;
 mod timer;
 mod trap;
 
+mod drivers;
 mod qemu;
 
 // Embed this assembly code.
 global_asm!(include_str!("entry.asm"));
 // this asm source file is created by build.rs
-global_asm!(include_str!("link_app.S"));
+// global_asm!(include_str!("link_app.S"));
 
 #[no_mangle]
 /// The rust entry-point of os
 pub fn rust_main() -> ! {
   clear_bss();
-  println!("[kernel] ---- Kernel program startup ----");
-
-  println!(
-    "[kernel] ---- Initialize heap,frame allocator; kernel space;  ----"
-  );
+  println!("[kernel] Kernel started.");
+  println!("[kernel] memory init.");
   mm::init();
-
-  println!("[kernel] --- memory manager testing ---");
+  println!("[kernel] memory test.");
   mm::remap_test();
-
-  task::add_initproc();
-  println!("---- after initproc ----");
-
-  println!("[kernel] --- Initialize Trap entry ---");
+  println!("[kernel] trap init.");
   trap::init();
-
-  // setting `sie.stie` interruption won't be masked.
+  println!("[kernel] timer interrupt enable.");
   trap::enable_timer_interrupt();
-
-  // setting a 10 ms time counter.
-  println!("[kernel] --- set up timer ---");
+  println!("[kernel] timer interrupt set.");
   timer::set_next_trigger();
-
-  loader::list_apps();
-
-  println!("[kernel] --- run the first task ---");
+  println!("[kernel] list application.");
+  fs::list_apps();
+  println!("[kernel] add init process.");
+  task::add_initproc();
+  println!("[kernel] run tasks.");
   task::run_tasks();
-
   panic!("Unreachable in rust_main!");
 }
 

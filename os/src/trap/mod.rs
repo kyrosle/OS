@@ -27,7 +27,8 @@ use crate::{
   config::{TRAMPOLINE, TRAP_CONTEXT},
   syscall::syscall,
   task::{
-    current_trap_cx, current_user_token, exit_current_and_run_next,
+    current_trap_cx, current_user_token,
+    exit_current_and_run_next,
     suspend_current_and_run_next,
   },
   timer::set_next_trigger,
@@ -49,7 +50,10 @@ pub fn enable_timer_interrupt() {
 
 fn set_kernel_trap_entry() {
   unsafe {
-    stvec::write(trap_from_kernel as usize, TrapMode::Direct);
+    stvec::write(
+      trap_from_kernel as usize,
+      TrapMode::Direct,
+    );
   }
 }
 
@@ -75,7 +79,8 @@ pub fn trap_return() -> ! {
     fn __alltraps();
     fn __restore();
   }
-  let restore_va = __restore as usize - __alltraps as usize + TRAMPOLINE;
+  let restore_va =
+    __restore as usize - __alltraps as usize + TRAMPOLINE;
   unsafe {
     asm!(
       "fence.i",
@@ -102,7 +107,9 @@ pub fn trap_handler() -> ! {
       let mut cx = current_trap_cx();
       cx.sepc += 4;
       // get system call return value
-      let result = syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12]]) as usize;
+      let result =
+        syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12]])
+          as usize;
       // cx is changed during sys_exec, so we have to call it again
       cx = current_trap_cx();
       cx.x[10] = result;

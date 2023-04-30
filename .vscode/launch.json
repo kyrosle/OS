@@ -7,10 +7,10 @@
     {
       "type": "cppdbg",
       "request": "launch",
-      "name": "Attach to gdbserver",
+      "name": "Attach",
       "program": "${workspaceFolder}/os/target/riscv64gc-unknown-none-elf/release/os",
       "miDebuggerServerAddress": "localhost:1234",
-      "miDebuggerPath": "riscv64-unknown-elf-gdb",
+      "miDebuggerPath": "/home/kyros/WorkStations/riscvTools/bin/riscv64-unknown-elf-gdb",
       "cwd": "${workspaceRoot}/os",
     }
   ]
