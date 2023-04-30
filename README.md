@@ -10,6 +10,8 @@
     - [Multiprogramming and Time-Sharing Multitasking](#multiprogramming-and-time-sharing-multitasking)
     - [Address Space](#address-space)
     - [Process os](#process-os)
+    - [File system](#file-system)
+    - [](#)
 
 <!-- /code_chunk_output -->
 
@@ -562,6 +564,8 @@ Recycling the resources by calling `exit_current_and_run_next()`.
 setting child process status as `Zombie`, and then it will be recycled by its father
 process with `waitpid`.
 
+### File system
+
 ```mermaid
 graph TD;
     A[Easy-fs File System] --> B[Boot Block];
@@ -584,3 +588,5 @@ In the diagram above, the Easy-fs file system consists of a boot block, a super 
 The super block contains information about node groups and data groups. Node groups are used to store node blocks, while data groups are used to store data blocks. Node blocks contain metadata information about files and directories, such as file name, file size, creation time, etc. Data blocks store the actual data content of files.
 
 Overall, the Easy-fs file system adopts a simple and effective design approach by storing the metadata and data of the file system in different areas to improve the reliability and performance of the file system.
+
+###
