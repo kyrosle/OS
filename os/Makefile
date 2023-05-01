@@ -3,7 +3,7 @@ MODE := release
 KERNEL_ELF := target/$(TARGET)/$(MODE)/os
 KERNEL_BIN := $(KERNEL_ELF).bin
 FS_IMG := ../user/target/$(TARGET)/$(MODE)/fs.img
-BOOTLOADER := ../bootloader/rustsbi-qemu-new.bin
+BOOTLOADER := ../bootloader/rustsbi-qemu.bin
 APPS := ../user/src/bin/*
 
 # KERNEL ENTRY

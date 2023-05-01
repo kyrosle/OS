@@ -341,7 +341,7 @@ pub fn translated_str(
 
 #[allow(unused)]
 /// Translate a generic through page table and return a reference
-pub fn translate_ref<T>(
+pub fn translated_ref<T>(
   token: usize,
   ptr: *const T,
 ) -> &'static T {

@@ -1,6 +1,4 @@
-use crate::read;
-
-use super::write;
+use super::{read, write};
 use core::fmt::{self, Write};
 
 struct Stdout;

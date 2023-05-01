@@ -1,6 +1,7 @@
 //! Types related to task management
 use core::cell::RefMut;
 
+use alloc::string::String;
 use alloc::vec;
 use alloc::{
   sync::{Arc, Weak},
@@ -8,6 +9,7 @@ use alloc::{
 };
 
 use crate::fs::{Stdin, Stdout};
+use crate::mm::translated_refmut;
 use crate::{
   config::TRAP_CONTEXT,
   fs::File,
@@ -17,7 +19,8 @@ use crate::{
 };
 
 use super::{
-  pid_alloc, KernelStack, PidHandler, TaskContext,
+  pid_alloc, KernelStack, PidHandler, SignalActions,
+  SignalFlags, TaskContext,
 };
 
 #[derive(Copy, Clone, PartialEq)]
@@ -80,6 +83,13 @@ impl TaskControlBlock {
             // 2 -> stderr
             Some(Arc::new(Stdout)),
           ],
+          signals: SignalFlags::empty(),
+          signal_mask: SignalFlags::empty(),
+          handling_sig: -1,
+          signal_actions: SignalActions::default(),
+          killed: false,
+          frozen: false,
+          trap_ctx_backup: None,
           user_time: 0,
           kernel_time: 0,
         })
@@ -100,14 +110,46 @@ impl TaskControlBlock {
     task_control_block
   }
 
-  pub fn exec(&self, elf_data: &[u8]) {
+  pub fn exec(&self, elf_data: &[u8], args: Vec<String>) {
     // memory_set with elf program headers/trampoline/trap context/user stack
-    let (memory_set, user_sp, entry_point) =
+    let (memory_set, mut user_sp, entry_point) =
       MemorySet::from_elf(elf_data);
     let trap_cx_ppn = memory_set
       .translate(VirtAddr::from(TRAP_CONTEXT).into())
       .unwrap()
       .ppn();
+
+    // push arguments on user stack
+    user_sp -=
+      (args.len() + 1) * core::mem::size_of::<usize>();
+    let argv_base = user_sp;
+    let mut argv = (0..=args.len())
+      .map(|arg| {
+        translated_refmut(
+          memory_set.token(),
+          (argv_base + arg * core::mem::size_of::<usize>())
+            as *mut usize,
+        )
+      })
+      .collect::<Vec<_>>();
+    *argv[args.len()] = 0;
+    for i in 0..args.len() {
+      user_sp -= args[i].len() + 1;
+      *argv[i] = user_sp;
+      let mut p = user_sp;
+      for c in args[i].as_bytes() {
+        *translated_refmut(
+          memory_set.token(),
+          p as *mut u8,
+        ) = *c;
+        p += 1;
+      }
+      *translated_refmut(
+        memory_set.token(),
+        p as *mut u8,
+      ) = 0;
+    }
+    user_sp -= user_sp % core::mem::size_of::<usize>();
 
     // **** access inner exclusively
     let mut inner = self.inner_exclusive_access();
@@ -116,13 +158,15 @@ impl TaskControlBlock {
     // update trap_cx ppn
     inner.trap_cx_ppn = trap_cx_ppn;
     // initialize trap_cx
-    let trap_cx = TrapContext::app_init_context(
+    let mut trap_cx = TrapContext::app_init_context(
       entry_point,
       user_sp,
       KERNEL_SPACE.exclusive_access().token(),
       self.kernel_stack.get_top(),
       trap_handler as usize,
     );
+    trap_cx.x[10] = args.len();
+    trap_cx.x[11] = argv_base;
     *inner.get_trap_cx() = trap_cx;
     // **** release inner automatically
   }
@@ -171,6 +215,16 @@ impl TaskControlBlock {
           children: Vec::new(),
           exit_code: 0,
           fd_table: new_fd_table,
+          signals: SignalFlags::empty(),
+          // inherit the signal_mask and signal_action
+          signal_mask: parent_inner.signal_mask,
+          handling_sig: -1,
+          signal_actions: parent_inner
+            .signal_actions
+            .clone(),
+          killed: false,
+          frozen: false,
+          trap_ctx_backup: None,
           user_time: 0,
           kernel_time: 0,
         })
@@ -230,6 +284,26 @@ pub struct TaskControlBlockInner {
   /// - dyn: maybe `Stdin` / `Stdout`
   pub fd_table: Vec<Option<Arc<dyn File + Send + Sync>>>,
 
+  /// global signal set mask in current process.
+  pub signal_mask: SignalFlags,
+  /// A array with elements of `SignalAction` in fixed length.
+  /// each of these records how the process responded to the corresponding signal.
+  pub signal_actions: SignalActions,
+
+  /// Record which signals have been received by the corresponding process
+  /// and have not yet been processed.
+  pub signals: SignalFlags,
+
+  /// whether the process received `SIGSTOP` signal, to stop.
+  pub killed: bool,
+  /// whether the process is killed.
+  pub frozen: bool,
+
+  /// Processing routine for which signal the process is executing.
+  pub handling_sig: isize,
+  /// Trap context before the process executes the signal processing routine.
+  pub trap_ctx_backup: Option<TrapContext>,
+
   pub user_time: usize,
   pub kernel_time: usize,
 }
@@ -251,6 +325,8 @@ impl TaskControlBlockInner {
     self.get_status() == TaskStatus::Zombie
   }
 
+  /// Allocate a minimum free file descriptor,
+  /// otherwise extending the fd_table length and allocate one.
   pub fn alloc_fd(&mut self) -> usize {
     if let Some(fd) = (0..self.fd_table.len())
       .find(|fd| self.fd_table[*fd].is_none())

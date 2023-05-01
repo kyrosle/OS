@@ -1,5 +1,7 @@
 use riscv::register::sstatus::{self, Sstatus, SPP};
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
 /// Trap Context
 pub struct TrapContext {
   /// general registers[0..31]

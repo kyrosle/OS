@@ -1,10 +1,49 @@
 //! File and filesystem-related syscalls
 
-use crate::fs::{open_file, OpenFlags};
+use alloc::sync::Arc;
+
+use crate::fs::{make_pipe, open_file, OpenFlags};
 use crate::mm::{
-  translated_byte_buffer, translated_str, UserBuffer,
+  translated_byte_buffer, translated_refmut,
+  translated_str, UserBuffer,
 };
 use crate::task::{current_task, current_user_token};
+
+pub fn sys_dup(fd: usize) -> isize {
+  let task = current_task().unwrap();
+  let mut inner = task.inner_exclusive_access();
+  // check the file descriptor valid
+  if fd >= inner.fd_table.len() {
+    return -1;
+  }
+  if inner.fd_table[fd].is_none() {
+    return -1;
+  }
+  let new_fd = inner.alloc_fd();
+  inner.fd_table[new_fd] =
+    Some(Arc::clone(inner.fd_table[fd].as_ref().unwrap()));
+  new_fd as isize
+}
+
+pub fn sys_pipe(pipe: *mut usize) -> isize {
+  let task = current_task().unwrap();
+  let token = current_user_token();
+  let mut inner = task.inner_exclusive_access();
+
+  // crate a pipe and get (read_end, write_end)
+  let (pipe_read, pipe_write) = make_pipe();
+  // set read_end and write_end file descriptor into the corresponding position in fd_table.
+  let read_fd = inner.alloc_fd();
+  inner.fd_table[read_fd] = Some(pipe_read);
+  let write_fd = inner.alloc_fd();
+  inner.fd_table[write_fd] = Some(pipe_write);
+
+  // writing read_end and write_end to the corresponding application space address.
+  *translated_refmut(token, pipe) = read_fd;
+  *translated_refmut(token, unsafe { pipe.add(1) }) =
+    write_fd;
+  0
+}
 
 /// write buf of length `len` to a file with `fd`
 pub fn sys_write(
@@ -61,7 +100,6 @@ pub fn sys_open(path: *const u8, flags: u32) -> isize {
   let task = current_task().unwrap();
   let token = current_user_token();
   let path = translated_str(token, path);
-  println!("[sys_open]: file {}", path);
   if let Some(inode) = open_file(
     path.as_str(),
     OpenFlags::from_bits(flags).unwrap(),

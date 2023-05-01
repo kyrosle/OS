@@ -35,7 +35,7 @@ impl BlockDevice for BlockFile {
 }
 
 fn main() {
-  easy_fs_pack().expect("Error when packing easy-fs!");
+  easyfs_pack().expect("Error when packing easy-fs!");
 }
 
 // #[derive(Parser)]
@@ -48,7 +48,7 @@ fn main() {
 //   #[clap(short, long)]
 //   target: String,
 // }
-fn easy_fs_pack() -> std::io::Result<()> {
+fn easyfs_pack() -> std::io::Result<()> {
   let matches = App::new("EasyFileSystem packer")
     .arg(
       Arg::with_name("source")

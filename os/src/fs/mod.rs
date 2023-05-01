@@ -1,9 +1,11 @@
 use crate::mm::UserBuffer;
 
 mod inode;
+mod pipe;
 mod stdio;
 
 pub use inode::{list_apps, open_file, OSInode, OpenFlags};
+pub use pipe::{make_pipe, Pipe};
 pub use stdio::{Stdin, Stdout};
 
 /// File trait

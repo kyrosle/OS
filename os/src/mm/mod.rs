@@ -24,8 +24,9 @@ pub use memory_set::{
 };
 use page_table::PTEFlags;
 pub use page_table::{
-  translated_byte_buffer, translated_refmut,
-  translated_str, PageTable, PageTableEntry, UserBuffer,
+  translated_byte_buffer, translated_ref,
+  translated_refmut, translated_str, PageTable,
+  PageTableEntry, UserBuffer,
 };
 /// initialize heap allocator, frame allocator, and kernel space.
 pub fn init() {

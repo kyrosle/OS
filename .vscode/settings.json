@@ -15,6 +15,7 @@
     "Deque",
     "ebss",
     "ekernel",
+    "getchar",
     "idxs",
     "kstack",
     "mtvec",

@@ -1,13 +1,14 @@
 //! Process management syscalls
-use alloc::sync::Arc;
+use alloc::{string::String, sync::Arc, vec::Vec};
 
 use crate::{
   fs::{open_file, OpenFlags},
-  mm::{translated_refmut, translated_str},
+  mm::{translated_ref, translated_refmut, translated_str},
   task::{
     add_task, current_task, current_user_token,
-    exit_current_and_run_next,
-    suspend_current_and_run_next,
+    exit_current_and_run_next, pid2task,
+    suspend_current_and_run_next, SignalAction,
+    SignalFlags, MAX_SIG,
   },
   timer::get_time_ms,
 };
@@ -57,17 +58,37 @@ pub fn sys_fork() -> isize {
   new_pid as isize
 }
 
-pub fn sys_exec(path: *const u8) -> isize {
+pub fn sys_exec(
+  path: *const u8,
+  mut args: *const usize,
+) -> isize {
   let token = current_user_token();
   let path = translated_str(token, path);
+
+  let mut args_vec: Vec<String> = Vec::new();
+  loop {
+    let arg_str_ptr = *translated_ref(token, args);
+    if arg_str_ptr == 0 {
+      break;
+    }
+    args_vec.push(translated_str(
+      token,
+      arg_str_ptr as *const u8,
+    ));
+    unsafe {
+      args = args.add(1);
+    }
+  }
 
   if let Some(app_inode) =
     open_file(path.as_str(), OpenFlags::RDONLY)
   {
     let all_data = app_inode.read_all();
     let task = current_task().unwrap();
-    task.exec(all_data.as_slice());
-    0
+    let argc = args_vec.len();
+    task.exec(all_data.as_slice(), args_vec);
+    // return arc because cx.x[10]  will be covered with it later
+    argc as isize
   } else {
     -1
   }
@@ -117,4 +138,101 @@ pub fn sys_waitpid(
     -2
   }
   // ---- release current PCB lock automatically
+}
+
+pub fn sys_sigprocmask(mask: u32) -> isize {
+  if let Some(task) = current_task() {
+    let mut inner = task.inner_exclusive_access();
+    let old_mask = inner.signal_mask;
+    if let Some(flag) = SignalFlags::from_bits(mask) {
+      inner.signal_mask = flag;
+      old_mask.bits() as isize
+    } else {
+      -1
+    }
+  } else {
+    -1
+  }
+}
+
+/// check the sigaction parameter wether is invalid, if invalid return true.
+fn check_sigaction_error(
+  signal: SignalFlags,
+  action: usize,
+  old_action: usize,
+) -> bool {
+  action == 0
+    || old_action == 0
+    || signal == SignalFlags::SIGKILL
+    || signal == SignalFlags::SIGSTOP
+}
+
+pub fn sys_sigaction(
+  signum: i32,
+  action: *const SignalAction,
+  old_action: *mut SignalAction,
+) -> isize {
+  let token = current_user_token();
+  let task = current_task().unwrap();
+  let mut inner = task.inner_exclusive_access();
+  if signum as usize > MAX_SIG {
+    return -1;
+  }
+  if let Some(flag) = SignalFlags::from_bits(1 << signum) {
+    if check_sigaction_error(
+      flag,
+      action as usize,
+      old_action as usize,
+    ) {
+      return -1;
+    }
+    let prev_action =
+      inner.signal_actions.table[signum as usize];
+    // save the signal handling routine submitted by the process to the process control block.
+    // Note that translated_ref (mut) is used on the premise that type T does not span pages,
+    // which we guarantee by setting `SignalAction` alignment to 16 bytes.
+    *translated_refmut(token, old_action) = prev_action;
+    inner.signal_actions.table[signum as usize] =
+      *translated_ref(token, action);
+    0
+  } else {
+    -1
+  }
+}
+
+pub fn sys_kill(pid: usize, signum: i32) -> isize {
+  // get the PCB by pid
+  // then insert the kill flag into its `signals` field.
+  if let Some(task) = pid2task(pid) {
+    if let Some(flag) = SignalFlags::from_bits(1 << signum)
+    {
+      // insert the signal if legal
+      let mut task_ref = task.inner_exclusive_access();
+      if task_ref.signals.contains(flag) {
+        return -1;
+      }
+      task_ref.signals.insert(flag);
+      0
+    } else {
+      -1
+    }
+  } else {
+    -1
+  }
+}
+
+pub fn sys_sigreturn() -> isize {
+  if let Some(task) = current_task() {
+    let mut inner = task.inner_exclusive_access();
+    inner.handling_sig = -1;
+    // restore the trap context
+    let trap_ctx = inner.get_trap_cx();
+    *trap_ctx = inner.trap_ctx_backup.unwrap();
+    // Here we return the value of a0 in the trap_ctx,
+    // otherwise it will be overwritten after we trap
+    // back to the original execution of the application.
+    trap_ctx.x[10] as isize
+  } else {
+    -1
+  }
 }
