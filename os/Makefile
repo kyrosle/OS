@@ -15,7 +15,7 @@ OBJCOPY := rust-objcopy --binary-architecture=riscv64
 
 fs-img: 
 	@cd ../user && make build TEST=$(TEST)
-	@rm -f $(FS_IMG)
+	- @rm -f $(FS_IMG)
 	@cd ../easy-fs-fuse && cargo run --release -- -s ../user/src/bin/ -t ../user/target/riscv64gc-unknown-none-elf/release/
 
 run: fs-img

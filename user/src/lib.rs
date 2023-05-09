@@ -63,7 +63,6 @@ pub extern "C" fn _start(argc: usize, argv: usize) -> ! {
     )
   }
   exit(main(argc, v.as_slice()));
-  panic!("unreachable after sys_exit!");
 }
 
 #[linkage = "weak"]

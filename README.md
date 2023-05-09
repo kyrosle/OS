@@ -11,7 +11,7 @@
     - [Address Space](#address-space)
     - [Process os](#process-os)
     - [File system](#file-system)
-    - [](#)
+    - [Pipe And Signal](#pipe-and-signal)
 
 <!-- /code_chunk_output -->
 
@@ -73,11 +73,11 @@ Function Call Context:
 - Caller-Saved: used by caller
 
 Register:
-|register|saver|
-|---|---|
-|a0 ~ a7(x10 ~ x17) |callee|
-|t0 ~ t6(x5 ~ x7, x28 ~ x31) |callee|
-|s0 ~ s11(x8 ~ x9, x18 ~ x27) |caller|
+| register                     | saver  |
+| ---------------------------- | ------ |
+| a0 ~ a7(x10 ~ x17)           | callee |
+| t0 ~ t6(x5 ~ x7, x28 ~ x31)  | callee |
+| s0 ~ s11(x8 ~ x9, x18 ~ x27) | caller |
 
 zero(x0), ra(x1), sp(x2), fp(s0), gp(x3), tp(x4)
 
@@ -566,6 +566,11 @@ process with `waitpid`.
 
 ### File system
 
+Code Tree:
+![](pictures/file_system.png)
+
+Easy-fs:
+
 ```mermaid
 graph TD;
     A[Easy-fs File System] --> B[Boot Block];
@@ -583,10 +588,385 @@ graph TD;
     H --> N[...];
 ```
 
-In the diagram above, the Easy-fs file system consists of a boot block, a super block, a block bitmap, node blocks, and data blocks. The boot block is used to boot the file system, the super block contains metadata information about the file system, the block bitmap is used to record the usage of blocks, the node blocks are used to store directory and file information, and the data blocks are used to store the actual data of files.
+In the diagram above, the Easy-fs file system consists of a `boot block`,
+a `super block`, a `block bitmap`, `node blocks`, and `data blocks`.
 
-The super block contains information about node groups and data groups. Node groups are used to store node blocks, while data groups are used to store data blocks. Node blocks contain metadata information about files and directories, such as file name, file size, creation time, etc. Data blocks store the actual data content of files.
+- `boot block` is used to boot the file system,
+- `super block` contains metadata information about the file system,
+- `block bitmap` is used to record the usage of blocks,
+- `node blocks` are used to store directory and file information,
+- `data blocks` are used to store the actual data of files.
+
+The `super block` contains information about `Node groups` and `Data groups`.
+`Node groups` are used to store `Node blocks`, while data groups are used to store `Data blocks`.
+
+- `Node blocks X` contain metadata information about files and directories,
+  such as file name, file size, creation time, etc.
+- `Data blocks X` store the actual data content of files.
 
 Overall, the Easy-fs file system adopts a simple and effective design approach by storing the metadata and data of the file system in different areas to improve the reliability and performance of the file system.
 
-###
+add user lib systemctl call:
+
+- `sys_open`
+- `sys_close`
+
+`easy-fs`: implement a simple file system layout.
+
+`easy-fs-fuse`: is an application that can run in a development environment,
+it can test `easy-fs`, or package the application developed for our kernel
+as an easy-fs file system image.
+
+```mermaid
+graph TB
+A[easy-fs] -- Connects via abstract \n interface BlockDevice --> B(Underlying device driver)
+A -- Isolates memory management of kernel \n via Rust's alloc crate --> C(OS kernel)
+B -- Accesses virtio_blk virtual disk device \n via polling --> C(OS kernel)
+A -- Isolates process management of OS kernel \n by avoiding direct access to \n process-related data and functions --> C
+```
+
+Block Device Interface Layer:
+
+```rust
+// easy-fs/src/block_dev.rs
+
+pub trait BlockDevice : Send + Sync + Any {
+  // read the block which id equals to `block_id` data
+  // from disk to memory.
+  fn read_block(&self, block_id: usize, buf: &mut [u8]);
+  // write the block which id equals to `block_id` with data,
+  // from memory to disk.
+  fn write_block(&self, block_id: usize, buf: &[u8]);
+}
+```
+
+Block Cache Layer:
+
+Every time we want to do read/write in a disk block, we should put the
+block data onto a temporarily created cache area, writing it back after serval writing/reading operations.
+But in the the consideration of effective, we should reduce the time of calling `read/write_block` as less as possible, because they incur a lot of overhead every time they are called. To do this, the key is to `merge` block reads and writes.
+
+We have a `BLOCK_CACHE_MANAGER` to manage the caches we want to do operations,
+it use FIFO, each time we have a willing the change a block with the id,
+it will search the cache in its queue, if not matching, it will add it to the cache
+or find a cache which the count of strong references is just equal to 1, and then replace it with the one we want. (if the upper bound is full, panic)
+
+The exposed api, it just accept a closure conveniently:
+
+```rust
+impl BlockCache {
+  pub fn read<T, V>(&self, offset: usize, f: impl FnOnce(&T) -> V) -> V {
+    f(self.get_ref(offset))
+  }
+
+  pub fn modify<T, V>(&mut self, offset:usize, f: impl FnOnce(&mut T) -> V) -> V {
+    f(self.get_mut(offset))
+  }
+}
+```
+
+Disk Layout And Data Structures:
+
+```mermaid
+graph LR
+A[Super Block * 1]--- B[Inode Bitmap * n]
+B --- C[Inode region * n]
+C --- D[Data Bitmap * n]
+D --- E[Data region * n]
+
+B -- Manage --> C
+D -- Manage --> E
+C -- Manage --> E
+```
+
+Super Block: It is stored at the beginning of the block numbered 0 on the disk.
+
+BitMap: In easy-fs layout, existing two type of bitmap,
+managing index nodes and data blocks separately. Consisting of several blocks (each one: 512 bytes = 4096 bits). There are two state in each block record:
+
+- 0: unallocated
+- 1: allocated
+
+bitmap should find a bit which its state is 0 to allocate out and recycle bit(inode/block).
+
+DiskInode:
+Each file/directory are stored as a `DiskInode` in disk.
+including metadata: size(sizeof file/directory bytes), type\_(DiskInodeType),
+
+```mermaid
+graph TD
+A(Block number \n is stored in a u32) --> B(Indexing method)
+B --> C(Direct indexing)
+C --> D(The direct array \n can point to a maximum of \n INODE_DIRECT_COUNT \n data blocks)
+D --> E(Which allows you to find 14KiB of \n content through direct indexing)
+B --> F(Indirect indexing)
+F --> G(First-level indirect index indirect1)
+G --> H(Points to a first-level index block)
+H --> I(u32 points to a data block \n in the data block area \n that stores the file content)
+F --> J(Second-level indirect index indirect2)
+J --> K(Points to second-level \n index block located \n in the data block area)
+K --> L(u32 points to a different \n first-level index block)
+A --- M(DiskInode is sized to \n 128 bytes)
+M --- N(Each block can hold exactly \n 4 DiskInodes)
+N --- O(Direct index direct can be appropriately reduced)
+O --- P(Space saved can be used to \n store other meta-data)
+P --- Q(DiskInode's overall size \n can still be guaranteed to be \n 128 bytes)
+```
+
+Each files can be considered as servals of `DataBlock[u8;BLOCK_SZ]`,
+But Directory must follow some special format, considering as a consequence, which is
+a binary group, the first element is the name of this directory, and then is the number of Inode.
+
+Easy File System(efs.rs):
+
+Manage `Super Block`, `Inode Bitmap`, `Inode region`, `Data Bitmap` and `Data region`.
+
+Inode(vfs.rs):
+
+Explosive data structure.
+
+```rust
+pub struct Inode {
+  block_id: usize,
+  block_offset: usize,
+  fs: Arc<Mutex<EasyFileSystem>>,
+  block_device: Arc<dyn BlockDevice>,
+}
+```
+
+Implement:
+
+```rust
+// efs
+// Acquire the root inode
+fn root_inode(efs: &Arc<Mutex<Self>>) -> Inode
+
+// Inode
+// Find the inode(Only called by directory)
+fn find(name: &str) -> Option<Arc<Inode>>
+fn find_inode_id(name: &str, disk_inode: &DiskInode) -> Option<u32>
+
+// collect the files/directories name
+fn ls() -> Vec<String>
+
+// create a file in root inode
+fn create(name: &str) -> Option<Arc<Inode>>
+
+// clear the file (or open with `CREATE`)
+fn clear()
+
+// file read and write
+fn read_at(offset: usize, buf: &mut [u8]) -> usize
+fn write_at(offset: usize, buf: &[u8]) -> usize
+fn increase_size(new_size: u32, disk_inode: &mut DiskInode, fs)
+```
+
+Testing the Efs system, with linux(current system):
+
+using a file to emulate a block device.
+
+After implementing the easy-fs file system,
+we can finally package these applications into the easy-fs image and put them on disk. When we want to execute the application,
+we only need to take out the application in the `ELF execution file` format from the file system and load it.
+
+It can be executed in memory, which avoids the storage overhead and other problems in the previous chapters.
+
+we using crate `virtio-divers` to support VirtIO block devices....
+
+Kernel Inode Layer:
+
+```rust
+// Indicates a regular file or directory that is opened in the process
+pub struct OSInode {
+  readable: bool,
+  writable: bool,
+  inner: Mutex<OSInodeInner>,
+}
+pub struct OSInodeInner {
+  offset: usize,
+  inode: Arc<Inode>,
+}
+```
+
+File Description Layer:
+
+```rust
+pub trait File: Send + Sync {
+  /// If readable
+  fn readable(&self) -> bool;
+  /// If writable
+  fn writable(&self) -> bool;
+  /// Read file to `UserBuffer`
+  fn read(&self, buf: UserBuffer) -> usize;
+  /// Write `UserBuffer` to file
+  fn write(&self, buf: UserBuffer) -> usize;
+}
+
+impl for OSInode {}
+```
+
+In order to supporting file management for Process,
+add corresponding fields: `pub fd_table: Vec<Option<Arc<dyn File + Send + Sync>>>,`
+
+And then add system call api:
+
+- sys_open: process only open a file and return a writeable and readable fd to process.
+- sys_close: process close the fd, guaranteeing legal access to documents.
+- sys_read: process can read the contents to memory.
+- sys_write: process can write the contents into the file.
+
+File system initialization:
+
+1. open the block device.
+2. open the file system in block device.
+3. acquire the root inode in file system.
+
+### Pipe And Signal
+
+IPCOS add two commination ways: Pipe and signal.
+
+code Tree:
+![](/pictures/ipcos.png)
+
+![](/pictures/pipe.png)
+
+Everything in linux are file.
+
+Implement `File trait` to `Stdin` and `Stdout` (meta structure).
+
+- fd == 0 Standard Input
+- fd == 1 Standard Output
+- fd == 2 Standard Error Output
+
+In process forking, child process should completely extend from father
+process fd table, in order to share all files.
+
+Pipe:
+
+```rust
+sys_pipe(pipe: *mut usize) -> isize;
+```
+
+Pipe is based on file:
+
+```rust
+pub struct Pipe {
+  // read-end or write-end
+  readable: bool,
+  writable: bool,
+  buffer: Arc<Mutex<PipeRingBuffer>>,
+}
+impl File for Pipe {}
+```
+
+And then, in a further warping:
+
+```rust
+enum RingBufferStatus {
+    FULL,
+    EMPTY,
+    NORMAL,
+}
+
+pub struct PipeRingBuffer {
+    arr: [u8; RING_BUFFER_SIZE],
+    head: usize,
+    tail: usize,
+    status: RingBufferStatus,
+    write_end: Option<Weak<Pipe>>,
+}
+```
+
+`write_end`:
+Keeps a weak reference count for its writes,
+because in some cases it is necessary to confirm whether
+all writes of the pipeline have been closed,
+this is easy to confirm with this field.
+
+providing two api in `Pipe`:
+
+```rust
+fn read_end_with_buffer(buffer: Arc<Mutex<PipeRingBuffer>>) -> Self
+fn write_end_with_buffer(buffer: Arc<Mutex<PipeRingBuffer>>) -> Self
+```
+
+then in making up a pipe:
+
+```rust
+/// Return (read_end, write_end)
+pub fn make_pipe() -> (Arc<Pipe>, Arc<Pipe>) {
+  let buffer = Arc::new(Mutex::new(PipeRingBuffer::new()));
+  let read_end = Arc::new(
+    Pipe::read_end_with_buffer(buffer.clone())
+  );
+  let write_end = Arc::new(
+    Pipe::write_end_with_buffer(buffer.clone())
+  );
+  buffer.lock().set_write_end(&write_end);
+  (read_end, write_end)
+}
+```
+
+Adding Command parameters and Redirecting the standard I/O:
+
+modify the system call api:
+`pub fn sys_exec(path: &str, args: &[*const u8]) -> isize;`
+
+Since we want to pass the starting address of this vector to the kernel,
+in order for the kernel to get the number of command line arguments,
+we need to put a 0 at the end of the args_addr,
+so that the kernel can know when it sees it.
+The command line parameters have been obtained.
+
+Then in `TaskControlBlock`, we push arguments on user stack,
+
+such as : accepting "aa" and "bb":
+
+![](pictures/push_arg_to_user_stack.png)
+
+At the same time, we also need to modify the `a0/a1` register in the Trap context, so that `a0` represents the number of command line parameters, and `a1` represents the starting address of the blue area argv_base in the figure.
+
+Redirect standard I/O:
+
+`sys_dup` : copy its a already open file reference and allocate a new fd point at this file.
+
+```rust
+pub fn sys_dup(fd: usize) -> isize {
+  let task = current_task().unwrap();
+  let mut inner = task.acquire_inner_lock();
+  // check the fd validity
+  if fd >= inner.fd_table.len() {
+    return -1;
+  }
+  if inner.fd_table[fd].is_none() {
+    return -1;
+  }
+
+  let new_fd = inner.alloc_fd();
+
+  inner.fd_table[new_fd] = 
+          Some(Arc::clone(inner.fd_table[fd].as_ref().unwrap()));
+
+  new_fd as isize
+}
+```
+
+The process of opening the file and replacing 
+it takes place in the child process branch after the fork.
+```rust
+if !input.is_empty() {
+  let input_fd = open(input.as_str(), OpenFlags::RDONLY);
+  if input_fd == -1 {
+    println!("Error when opening file {}", input);
+    return -4;
+  }
+  let input_fd = input_fd as usize;
+  close(0);
+  assert_eq!(dup(input_fd), 0);
+  close(input_fd);
+}
+```
+
+signal:
+
+

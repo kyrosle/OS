@@ -87,7 +87,7 @@ fn run_tests(
       assert_eq!(pid, wait_pid);
       if exit_code == test.4 {
         // summary apps with  exit_code
-        pass_num = pass_num + 1;
+        pass_num += 1;
       }
       println!(
                 "\x1b[32mUsertests: Test {} in Process {} exited with code {}\x1b[0m",
@@ -127,5 +127,5 @@ pub fn main() -> i32 {
     );
   }
   println!(" Usertests failed!");
-  return -1;
+  -1
 }

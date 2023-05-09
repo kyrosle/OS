@@ -130,6 +130,7 @@ fn final_sig_test() {
     }
     write(pipe_fd[1], &[0u8]);
     close(pipe_fd[1]);
+    #[allow(clippy::empty_loop)]
     loop {}
   } else {
     close(pipe_fd[1]);

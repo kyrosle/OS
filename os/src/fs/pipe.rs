@@ -124,11 +124,11 @@ impl File for Pipe {
 /// Recording the current Pipe status.
 enum RingBufferStatus {
   /// Buffer is full, cannot be written.
-  FULL,
+  Full,
   /// Buffer is empty, cannot be read.
-  EMPTY,
+  Empty,
   /// Other status.
-  NORMAL,
+  Normal,
 }
 
 pub struct PipeRingBuffer {
@@ -150,7 +150,7 @@ impl PipeRingBuffer {
       arr: [0; RING_BUFFER_SIZE],
       head: 0,
       tail: 0,
-      status: RingBufferStatus::EMPTY,
+      status: RingBufferStatus::Empty,
       write_end: None,
     }
   }
@@ -162,11 +162,11 @@ impl PipeRingBuffer {
 
   /// Write a byte to the ring buffer.
   pub fn write_byte(&mut self, byte: u8) {
-    self.status = RingBufferStatus::NORMAL;
+    self.status = RingBufferStatus::Normal;
     self.arr[self.tail] = byte;
     self.tail = (self.tail + 1) % RING_BUFFER_SIZE;
     if self.tail == self.head {
-      self.status = RingBufferStatus::FULL;
+      self.status = RingBufferStatus::Full;
     }
   }
 
@@ -175,18 +175,18 @@ impl PipeRingBuffer {
   /// if head index is equal tail index, the status may EMPTY or FULL, so we should
   /// update the status while calling `read_byte`.
   pub fn read_byte(&mut self) -> u8 {
-    self.status = RingBufferStatus::NORMAL;
+    self.status = RingBufferStatus::Normal;
     let c = self.arr[self.head];
     self.head = (self.head + 1) % RING_BUFFER_SIZE;
     if self.head == self.tail {
-      self.status = RingBufferStatus::EMPTY;
+      self.status = RingBufferStatus::Empty;
     }
     c
   }
 
   /// Calculate the count of bytes can be read.
   pub fn available_read(&self) -> usize {
-    if self.status == RingBufferStatus::EMPTY {
+    if self.status == RingBufferStatus::Empty {
       0
     } else if self.tail > self.head {
       self.tail - self.head
@@ -196,7 +196,7 @@ impl PipeRingBuffer {
   }
 
   pub fn available_write(&self) -> usize {
-    if self.status == RingBufferStatus::FULL {
+    if self.status == RingBufferStatus::Full {
       0
     } else {
       RING_BUFFER_SIZE - self.available_read()
