@@ -967,6 +967,72 @@ if !input.is_empty() {
 }
 ```
 
-signal:
+signal: process should have `event notify` ability. software interrupt.
 
+Signals is an asynchronous notification mechanism for inter-process communication in UNIX-like operating systems
 
+The Receiver of signals is a process, having 3 ways to handle:
+- ignored: ignore the signal.
+- capture: call corresponding signal handler function.
+- terminate: process exit
+
+if some signals don't have its corresponding handler function, kernel
+will handle it in default way.
+
+Signal handle process:
+
+![](/pictures/signal_handle.png)
+
+signal has 2 sources come from: 
+
+- at the beginning of process running, asynchronous signal.
+- the execution trigger of the process itself, synchronous signal.
+
+The kernel will check whether the process to be returned to has any signals pending before the Trap process is completed and is about to return to user mode. If it is required to handle, there are 2 ways:
+
+- call the handler function provided by corresponding signal by `sigaction`, 
+kernel will store the current process `Trap Context` in some place, and then return to the handler function in user mode. After this function is completed, calling `sigreturn` to restore the `Trap Context` and return user mode again to run next instruction.
+
+- otherwise, kernel will solve this signal in default way, and then return to user mode to run next instruction.
+
+Signal Mechanisms:
+- `sys_sigaction`: set up a signal processing routine.
+- `sys_procmask`: set the signal mask of the process.
+- `sys_sigreturn`: clears the stack frame, returns from the signal processing routine.
+
+Design and Implement Signaling Mechanisms:
+
+In order to set up signal process routine, adding serval fields in `TaskControlBlock`:
+```rust
+pub signal_mask: SignalFlags,
+pub signal_actions: SignalActions,
+```
+
+Signal generation:
+- process send `kill` to itself or other process.
+- kernel detect some events and then send the signal to process, 
+but this event has nothing to do with the execution of the process receiving the signal, such as `SIGCHLD`.
+- current process execution trigger some condition, then Trap into kernel handler, and then kernel send the corresponding signal to this kernel, such as `SIGSEGV` and `SIGILL`.
+
+Signal handle:
+adding two fields in `TaskControlBlock`:
+```rust
+pub handling_sig: isize,
+pub trap_ctx_backup: Option<TrapContext>,
+```
+
+```rust
+fn handle_signals()
+fn check_pending_signals()
+fn call_kernel_signal_handler(signal: SignalFlags)
+fn call_user_signal_handler(signal: SignalFlags)
+```
+
+```mermaid
+graph TB
+A[handler_signals] --> B[check_pending_signals]
+B -- SIGKILL, SIGSTOP, SIGCONT, SIGDEF --> C[call_kernel_signal_handler]
+B -- else --> D[call_user_signal_handler]
+C -- !frozen or killed --> E[suspend_current_and_run_next]
+D -- !frozen or killed --> E
+```
