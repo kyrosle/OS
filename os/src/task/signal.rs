@@ -3,7 +3,7 @@ use bitflags::*;
 pub const MAX_SIG: usize = 31;
 
 bitflags! {
-  #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+  // #[derive(Debug, Clone, Copy, PartialEq, Eq)]
   pub struct SignalFlags: u32 {
     const SIGDEF = 1; // Default signal handling
     const SIGHUP = 1 << 1;

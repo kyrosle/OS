@@ -7,7 +7,7 @@ extern crate user_lib;
 extern crate alloc;
 extern crate core;
 
-use alloc::vec::Vec;
+use alloc::vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use user_lib::{exit, sleep, thread_create, waittid};
 const N: usize = 1000;
@@ -67,9 +67,10 @@ pub fn thread_fn(id: usize) -> ! {
 
 #[no_mangle]
 pub fn main() -> i32 {
-  let mut v = Vec::new();
-  v.push(thread_create(thread_fn as usize, 0));
-  v.push(thread_create(thread_fn as usize, 1));
+  let v = vec![
+    thread_create(thread_fn as usize, 0),
+    thread_create(thread_fn as usize, 1),
+  ];
   for tid in v.iter() {
     let exit_code = waittid(*tid as usize);
     assert_eq!(exit_code, 0, "thread conflict happened!");

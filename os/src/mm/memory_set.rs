@@ -89,7 +89,7 @@ impl MapArea {
       }
     }
     let pte_flags =
-      PTEFlags::from_bits(self.map_perm.bits()).unwrap();
+      PTEFlags::from_bits(self.map_perm.bits).unwrap();
     page_table.map(vpn, ppn, pte_flags);
   }
 
@@ -155,7 +155,7 @@ pub enum MapType {
 
 bitflags! {
   /// map permissions corresponding to that in pte: `R W X U`
-  #[derive(Copy, Clone, PartialEq, Debug)]
+  // #[derive(Copy, Clone, PartialEq, Debug)]
   pub struct MapPermission: u8 {
     /// Readable
     const R = 1<<1;

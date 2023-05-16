@@ -7,7 +7,7 @@
 //! for static `ROOT_INODE`, we need to wrap
 //! `OSInodeInner` into `UPSafeCell`
 use alloc::{sync::Arc, vec::Vec};
-use easyfs::{EasyFileSystem, Inode};
+use easy_fs::{EasyFileSystem, Inode};
 use lazy_static::lazy_static;
 
 use crate::{drivers::BLOCK_DEVICE, sync::UPSafeCell};

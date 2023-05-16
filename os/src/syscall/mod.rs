@@ -66,9 +66,9 @@ pub fn syscall(
       sys_write(args[0], args[1] as *const u8, args[2])
     }
     SYSCALL_EXIT => sys_exit(args[0] as i32),
-    // SYSCALL_SLEEP => sys_sleep(args[0]),
+    SYSCALL_SLEEP => sys_sleep(args[0]),
     SYSCALL_YIELD => sys_yield(),
-    // SYSCALL_KILL => sys_kill(args[0], args[1] as u32),
+    SYSCALL_KILL => sys_kill(args[0], args[1] as u32),
     SYSCALL_GET_TIME => sys_get_time(),
     SYSCALL_GETPID => sys_getpid(),
     SYSCALL_FORK => sys_fork(),
@@ -87,16 +87,16 @@ pub fn syscall(
     SYSCALL_MUTEX_CREATE => sys_mutex_create(args[0] == 1),
     SYSCALL_MUTEX_LOCK => sys_mutex_lock(args[0]),
     SYSCALL_MUTEX_UNLOCK => sys_mutex_unlock(args[0]),
-    // SYSCALL_SEMAPHORE_CREATE => {
-    //   sys_semaphore_create(args[0])
-    // }
-    // SYSCALL_SEMAPHORE_UP => sys_semaphore_up(args[0]),
-    // SYSCALL_SEMAPHORE_DOWN => sys_semaphore_down(args[0]),
-    // SYSCALL_CONDVAR_CREATE => sys_condvar_create(),
-    // SYSCALL_CONDVAR_SIGNAL => sys_condvar_signal(args[0]),
-    // SYSCALL_CONDVAR_WAIT => {
-    //   sys_condvar_wait(args[0], args[1])
-    // }
+    SYSCALL_SEMAPHORE_CREATE => {
+      sys_semaphore_create(args[0])
+    }
+    SYSCALL_SEMAPHORE_UP => sys_semaphore_up(args[0]),
+    SYSCALL_SEMAPHORE_DOWN => sys_semaphore_down(args[0]),
+    SYSCALL_CONDVAR_CREATE => sys_condvar_create(),
+    SYSCALL_CONDVAR_SIGNAL => sys_condvar_signal(args[0]),
+    SYSCALL_CONDVAR_WAIT => {
+      sys_condvar_wait(args[0], args[1])
+    }
     _ => panic!("Unsupported syscall_id: {}", syscall_id),
   }
 }

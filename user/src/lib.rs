@@ -72,7 +72,6 @@ fn main(_argc: usize, _argv: &[&str]) -> i32 {
 }
 
 bitflags! {
-  #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
   pub struct OpenFlags: u32 {
     const RDONLY = 0;
     const WRONLY = 1 << 0;
@@ -83,7 +82,6 @@ bitflags! {
 }
 
 bitflags! {
-  #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
   pub struct SignalFlags: i32 {
     const SIGINT    = 1 << 2;
     const SIGILL    = 1 << 4;
@@ -127,7 +125,7 @@ pub fn dup(fd: usize) -> isize {
 ///
 /// syscall ID: 56
 pub fn open(path: &str, flags: OpenFlags) -> isize {
-  sys_open(path, flags.bits())
+  sys_open(path, flags.bits)
 }
 
 /// ### Function:

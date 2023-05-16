@@ -5,10 +5,9 @@ use crate::{
   fs::{open_file, OpenFlags},
   mm::{translated_ref, translated_refmut, translated_str},
   task::{
-    add_task, current_process, current_task,
-    current_user_token, exit_current_and_run_next,
-    pid2process, suspend_current_and_run_next,
-    SignalAction, SignalFlags, MAX_SIG,
+    current_process, current_task, current_user_token,
+    exit_current_and_run_next, pid2process,
+    suspend_current_and_run_next, SignalFlags,
   },
   timer::get_time_ms,
 };
@@ -142,12 +141,11 @@ pub fn sys_waitpid(
   // ---- release current PCB lock automatically
 }
 
-pub fn sys_kill(pid: usize, signum: i32) -> isize {
+pub fn sys_kill(pid: usize, signal: u32) -> isize {
   // get the PCB by pid
   // then insert the kill flag into its `signals` field.
   if let Some(process) = pid2process(pid) {
-    if let Some(flag) = SignalFlags::from_bits(1 << signum)
-    {
+    if let Some(flag) = SignalFlags::from_bits(signal) {
       // insert the signal
       process.inner_exclusive_access().signals |= flag;
       0

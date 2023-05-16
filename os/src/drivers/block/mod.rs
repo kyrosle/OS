@@ -1,6 +1,6 @@
 mod virtio_blk;
 use alloc::sync::Arc;
-use easyfs::BlockDevice;
+use easy_fs::BlockDevice;
 use lazy_static::lazy_static;
 pub use virtio_blk::VirtIOBlock;
 

@@ -26,7 +26,7 @@ struct Task {
 }
 
 impl Task {
-  fn waiter<'a>(&'a mut self) -> Waiter<'a> {
+  fn waiter(&'_ mut self) -> Waiter<'_> {
     Waiter { task: self }
   }
 }

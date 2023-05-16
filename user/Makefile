@@ -23,6 +23,9 @@ binary: elf
 
 build: binary
 
+fmt: 
+	cargo fmt
+
 clean:
 	@cargo clean
 

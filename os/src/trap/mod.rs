@@ -27,12 +27,12 @@ use crate::{
   config::TRAMPOLINE,
   syscall::syscall,
   task::{
-    current_add_signal, current_trap_cx,
-    current_trap_cx_user_va, current_user_token,
-    exit_current_and_run_next,
+    check_signals_of_current, current_add_signal,
+    current_trap_cx, current_trap_cx_user_va,
+    current_user_token, exit_current_and_run_next,
     suspend_current_and_run_next, SignalFlags,
   },
-  timer::set_next_trigger,
+  timer::{check_timer, set_next_trigger},
 };
 
 global_asm!(include_str!("trap.S"));
@@ -138,6 +138,7 @@ pub fn trap_handler() -> ! {
     }
     Trap::Interrupt(Interrupt::SupervisorTimer) => {
       set_next_trigger();
+      check_timer();
       suspend_current_and_run_next();
     }
     _ => {
@@ -147,6 +148,11 @@ pub fn trap_handler() -> ! {
         stval
       );
     }
+  }
+  // check signals
+  if let Some((errno, msg)) = check_signals_of_current() {
+    println!("[kernel] {}", msg);
+    exit_current_and_run_next(errno);
   }
   trap_return();
 }

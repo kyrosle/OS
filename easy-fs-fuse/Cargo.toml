@@ -5,7 +5,7 @@ edition = "2021"
 
 
 [dependencies]
-easyfs = { path = "../easy-fs" }
+easy-fs = { path = "../easy-fs" }
 # clap = { version = "4.2.5", features = ["derive"] }
 clap = "2.33.3"
 # easyfs = { path = "/home/kyros/WorkStations/TempStorage/rCore-Tutorial-v3/easy-fs" }

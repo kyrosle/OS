@@ -73,11 +73,11 @@ fn eisenberg_enter_critical(id: usize) {
     memory_fence!();
     /* check if anthor thread is also `In`, which imply a conflict*/
     let mut conflict = false;
-    for i in 0..THREAD_NUM {
+    (0..THREAD_NUM).for_each(|i| {
       if i != id && vload!(&FLAG[i]) == FlagState::In {
         conflict = true;
       }
-    }
+    });
     if !conflict {
       break;
     }
@@ -127,9 +127,9 @@ pub fn main() -> i32 {
   // TODO: really shuffle
   assert_eq!(THREAD_NUM, 10);
   let shuffle: [usize; 10] = [0, 7, 4, 6, 2, 9, 8, 1, 3, 5];
-  for i in 0..THREAD_NUM {
+  (0..THREAD_NUM).for_each(|i| {
     v.push(thread_create(thread_fn as usize, shuffle[i]));
-  }
+  });
   for tid in v.iter() {
     let exit_code = waittid(*tid as usize);
     assert_eq!(exit_code, 0, "thread conflict happened!");

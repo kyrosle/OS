@@ -7,9 +7,7 @@ use crate::mm::{
   translated_byte_buffer, translated_refmut,
   translated_str, UserBuffer,
 };
-use crate::task::{
-  current_process, current_task, current_user_token,
-};
+use crate::task::{current_process, current_user_token};
 
 /// write buf of length `len` to a file with `fd`
 pub fn sys_write(
@@ -24,6 +22,9 @@ pub fn sys_write(
     return -1;
   }
   if let Some(file) = &inner.fd_table[fd] {
+    if !file.writable() {
+      return -1;
+    }
     let file = file.clone();
     // release current task TCB manually to avoid multi-borrow
     drop(inner);

@@ -6,7 +6,7 @@ use crate::{
   sync::UPSafeCell,
 };
 use alloc::vec::Vec;
-use easyfs::BlockDevice;
+use easy_fs::BlockDevice;
 use lazy_static::lazy_static;
 use virtio_drivers::{Hal, VirtIOBlk, VirtIOHeader};
 
