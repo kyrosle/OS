@@ -5,10 +5,10 @@ use crate::{
   fs::{open_file, OpenFlags},
   mm::{translated_ref, translated_refmut, translated_str},
   task::{
-    add_task, current_task, current_user_token,
-    exit_current_and_run_next, pid2task,
-    suspend_current_and_run_next, SignalAction,
-    SignalFlags, MAX_SIG,
+    add_task, current_process, current_task,
+    current_user_token, exit_current_and_run_next,
+    pid2process, suspend_current_and_run_next,
+    SignalAction, SignalFlags, MAX_SIG,
   },
   timer::get_time_ms,
 };
@@ -38,23 +38,26 @@ pub fn sys_get_time() -> isize {
 }
 
 pub fn sys_getpid() -> isize {
-  current_task().unwrap().pid.0 as isize
+  current_task()
+    .unwrap()
+    .process
+    .upgrade()
+    .unwrap()
+    .getpid() as isize
 }
 
 pub fn sys_fork() -> isize {
-  let current_task = current_task().unwrap();
-  let new_task = current_task.fork();
-  let new_pid = new_task.pid.0;
+  let current_process = current_process();
+  let new_process = current_process.fork();
+  let new_pid = new_process.getpid();
   // modify trap context of new_task, because it returns immediately immediately after switching
-  let trap_cx =
-    new_task.inner_exclusive_access().get_trap_cx();
+  let new_process_inner =
+    new_process.inner_exclusive_access();
+  let task = new_process_inner.tasks[0].as_ref().unwrap();
+  let trap_cx = task.inner_exclusive_access().get_trap_cx();
   // we do not have to move to next instruction since we have done it before
   // for child process, fork returns 0.
-
   trap_cx.x[10] = 0; // x[10] is a0 register
-
-  // add new task to scheduler
-  add_task(new_task);
   new_pid as isize
 }
 
@@ -84,9 +87,9 @@ pub fn sys_exec(
     open_file(path.as_str(), OpenFlags::RDONLY)
   {
     let all_data = app_inode.read_all();
-    let task = current_task().unwrap();
+    let process = current_process();
     let argc = args_vec.len();
-    task.exec(all_data.as_slice(), args_vec);
+    process.exec(all_data.as_slice(), args_vec);
     // return arc because cx.x[10]  will be covered with it later
     argc as isize
   } else {
@@ -100,11 +103,10 @@ pub fn sys_waitpid(
   pid: isize,
   exit_code_ptr: *mut i32,
 ) -> isize {
-  let task = current_task().unwrap();
+  let process = current_process();
   // find a child process
 
-  // ---- access current TCB exclusively
-  let mut inner = task.inner_exclusive_access();
+  let mut inner = process.inner_exclusive_access();
   if !inner
     .children
     .iter()
@@ -116,7 +118,7 @@ pub fn sys_waitpid(
   let pair =
     inner.children.iter().enumerate().find(|(_, p)| {
       // ++++ temporarily access child PCB lock exclusively
-      p.inner_exclusive_access().is_zombie()
+      p.inner_exclusive_access().is_zombie
         && (pid == -1 || pid as usize == p.getpid())
       // ++++ release child PCB
     });
@@ -140,98 +142,18 @@ pub fn sys_waitpid(
   // ---- release current PCB lock automatically
 }
 
-pub fn sys_sigprocmask(mask: u32) -> isize {
-  if let Some(task) = current_task() {
-    let mut inner = task.inner_exclusive_access();
-    let old_mask = inner.signal_mask;
-    if let Some(flag) = SignalFlags::from_bits(mask) {
-      inner.signal_mask = flag;
-      old_mask.bits() as isize
-    } else {
-      -1
-    }
-  } else {
-    -1
-  }
-}
-
-/// check the sigaction parameter wether is invalid, if invalid return true.
-fn check_sigaction_error(
-  signal: SignalFlags,
-  action: usize,
-  old_action: usize,
-) -> bool {
-  action == 0
-    || old_action == 0
-    || signal == SignalFlags::SIGKILL
-    || signal == SignalFlags::SIGSTOP
-}
-
-pub fn sys_sigaction(
-  signum: i32,
-  action: *const SignalAction,
-  old_action: *mut SignalAction,
-) -> isize {
-  let token = current_user_token();
-  let task = current_task().unwrap();
-  let mut inner = task.inner_exclusive_access();
-  if signum as usize > MAX_SIG {
-    return -1;
-  }
-  if let Some(flag) = SignalFlags::from_bits(1 << signum) {
-    if check_sigaction_error(
-      flag,
-      action as usize,
-      old_action as usize,
-    ) {
-      return -1;
-    }
-    let prev_action =
-      inner.signal_actions.table[signum as usize];
-    // save the signal handling routine submitted by the process to the process control block.
-    // Note that translated_ref (mut) is used on the premise that type T does not span pages,
-    // which we guarantee by setting `SignalAction` alignment to 16 bytes.
-    *translated_refmut(token, old_action) = prev_action;
-    inner.signal_actions.table[signum as usize] =
-      *translated_ref(token, action);
-    0
-  } else {
-    -1
-  }
-}
-
 pub fn sys_kill(pid: usize, signum: i32) -> isize {
   // get the PCB by pid
   // then insert the kill flag into its `signals` field.
-  if let Some(task) = pid2task(pid) {
+  if let Some(process) = pid2process(pid) {
     if let Some(flag) = SignalFlags::from_bits(1 << signum)
     {
-      // insert the signal if legal
-      let mut task_ref = task.inner_exclusive_access();
-      if task_ref.signals.contains(flag) {
-        return -1;
-      }
-      task_ref.signals.insert(flag);
+      // insert the signal
+      process.inner_exclusive_access().signals |= flag;
       0
     } else {
       -1
     }
-  } else {
-    -1
-  }
-}
-
-pub fn sys_sigreturn() -> isize {
-  if let Some(task) = current_task() {
-    let mut inner = task.inner_exclusive_access();
-    inner.handling_sig = -1;
-    // restore the trap context
-    let trap_ctx = inner.get_trap_cx();
-    *trap_ctx = inner.trap_ctx_backup.unwrap();
-    // Here we return the value of a0 in the trap_ctx,
-    // otherwise it will be overwritten after we trap
-    // back to the original execution of the application.
-    trap_ctx.x[10] as isize
   } else {
     -1
   }

@@ -8,7 +8,7 @@ use super::{SignalFlags, MAX_SIG};
 /// and does not support signal nesting for the time being,
 /// that is, to execute another signal processing routine
 /// during the execution of one signal processing routine.
-/// 
+///
 /// (same as user/lib/SignalAction)
 pub struct SignalAction {
   /// Represents the entry address of the signal processing routine.

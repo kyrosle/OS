@@ -16,7 +16,7 @@ use alloc::vec::Vec;
 use buddy_system_allocator::LockedHeap;
 use syscall::*;
 
-const USER_HEAP_SIZE: usize = 16384;
+const USER_HEAP_SIZE: usize = 32768;
 
 static mut HEAP_SPACE: [u8; USER_HEAP_SIZE] =
   [0; USER_HEAP_SIZE];
@@ -25,7 +25,7 @@ static mut HEAP_SPACE: [u8; USER_HEAP_SIZE] =
 static HEAP: LockedHeap<32> = LockedHeap::empty();
 
 #[alloc_error_handler]
-pub fn handler_alloc_error(
+pub fn handle_alloc_error(
   layout: core::alloc::Layout,
 ) -> ! {
   panic!("Heap allocation error, layout = {:?}", layout);
@@ -72,6 +72,7 @@ fn main(_argc: usize, _argv: &[&str]) -> i32 {
 }
 
 bitflags! {
+  #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
   pub struct OpenFlags: u32 {
     const RDONLY = 0;
     const WRONLY = 1 << 0;
@@ -81,11 +82,22 @@ bitflags! {
   }
 }
 
+bitflags! {
+  #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+  pub struct SignalFlags: i32 {
+    const SIGINT    = 1 << 2;
+    const SIGILL    = 1 << 4;
+    const SIGABRT   = 1 << 6;
+    const SIGFPE    = 1 << 8;
+    const SIGSEGV   = 1 << 11;
+  }
+}
+
 /// ### Function:
 ///     Copy an already open file in the process and assign it to a new file descriptor.
 ///
 /// ### Parameter:
-///   - `fd` a file descriptor represent a already open file.
+///   - `fd`: a file descriptor represent a already open file.
 ///
 /// ### Return value:
 ///     if the accepting address is invalid, return -1, otherwise return 0.
@@ -96,26 +108,11 @@ pub fn dup(fd: usize) -> isize {
 }
 
 /// ### Function:
-///     Open a pipeline for the current process.
-///
-/// ### Parameter:
-///   - `pipe` represents a `usize` array starting address in application address space with the length of 2.
-///           kernel should put the file description of read-end and write-end into this array.
-///
-/// ### Return value:
-///     if the accepting address is invalid, return -1, otherwise return 0.
-///
-/// syscall ID: 59
-pub fn pipe(pipe_fd: &mut [usize]) -> isize {
-  sys_pipe(pipe_fd)
-}
-
-/// ### Function:
 ///     Open a regular file and return a file descriptor that can access it.
 ///
 /// ### Parameter:
-///   - `path` represents the name of file wanna to open.
-///   - `flags` flags describing(as fellow) open files.
+///   - `path`: represents the name of file wanna to open.
+///   - `flags`: flags describing(as fellow) open files.
 ///
 /// | Flags | Value  | File ModeDescription                                                                |
 /// | ----- | ------ | ----------------------------------------------------------------------------------- |
@@ -137,26 +134,43 @@ pub fn open(path: &str, flags: OpenFlags) -> isize {
 ///   Close a file in current process.
 ///
 /// ### Parameter:
-///   - `fd` the file descriptor should be closed.
+///   - `fd`: the file descriptor should be closed.
 ///
 /// ### Return:
 ///   if the closing success return 0, otherwise return -1, cos of the file descriptor doesn't match a opening file.
+///
+/// syscall ID: 57
 pub fn close(fd: usize) -> isize {
   sys_close(fd)
 }
 
 /// ### Function:
-///   Read the data to the buffer in memory from a file.
+///     Open a pipeline for the current process.
 ///
 /// ### Parameter:
-///   - `fd` represents the file descriptor of the file to be read;
-///   - `buf` represents the starting address of the buffer in memory(fat pointer, containing the start of the buffer address and the buffer size);
-///   - `len` indicates the length of the buffer in memory.
+///   - `pipe`: represents a `usize` array starting address in application address space with the length of 2.
+///           kernel should put the file description of read-end and write-end into this array.
+///
+/// ### Return:
+///     if the accepting address is invalid, return -1, otherwise return 0.
+///
+/// syscall ID: 59
+pub fn pipe(pipe_fd: &mut [usize]) -> isize {
+  sys_pipe(pipe_fd)
+}
+
+/// ### Function:
+///   Read the data to the buffer in memory from a file.
+///
+/// ### Parameters:
+///   - `fd`: represents the file descriptor of the file to be read;
+///   - `buf`: represents the starting address of the buffer in memory(fat pointer, containing the start of the buffer address and the buffer size);
+///   - `len`: indicates the length of the buffer in memory.
 ///
 /// ### Return value:
 ///   Returns the length of a successful read.
 ///
-/// syscall ID: 64
+/// syscall ID: 63
 pub fn read(fd: usize, buf: &mut [u8]) -> isize {
   sys_read(fd, buf)
 }
@@ -164,12 +178,12 @@ pub fn read(fd: usize, buf: &mut [u8]) -> isize {
 /// ### Function:
 ///   Write the data in the buffer in memory to a file.
 ///
-/// ### Parameter:
-///   - `fd` represents the file descriptor of the file to be written;
-///   - `buf` represents the starting address of the buffer in memory(fat pointer, containing the start of the buffer address and the buffer size);
-///   - `len` indicates the length of the buffer in memory.
+/// ### Parameters:
+///   - `fd`: represents the file descriptor of the file to be written;
+///   - `buf`: represents the starting address of the buffer in memory(fat pointer, containing the start of the buffer address and the buffer size);
+///   - `len`: indicates the length of the buffer in memory.
 ///
-/// ### Return value:
+/// ### Return:
 ///   Returns the length of a successful write.
 ///
 /// syscall ID: 64
@@ -181,9 +195,11 @@ pub fn write(fd: usize, buf: &[u8]) -> isize {
 
 /// ### Function:
 ///   Exit the application and inform the batch system of the return value.
+///
 /// ### Parameter:
-///   `exit_code` represents the return value of the application.
-/// ### Return value:
+///   - `exit_code`: represents the return value of the application.
+///
+/// ### Return:
 ///   This system call should not return.
 ///
 /// syscall ID: 93
@@ -192,18 +208,47 @@ pub fn exit(exit_code: i32) -> ! {
 }
 
 /// ### Function:
-///   Indicates that the application itself `temporarily` gives up the current right to use the CPU and enters the `Ready` state.
-/// ### Return value:
+///   current thread sleep for `period_ms` milliseconds.
+///
+/// ### Parameter:
+///   - `sleep_ms`: the milliseconds wanted to sleep.
+///
+/// syscall ID: 101
+pub fn sleep(sleep_ms: usize) {
+  sys_sleep(sleep_ms);
+}
+
+/// ### Function:
+///   Indicates that the application itself `temporarily` gives up the current
+///   right to use the CPU and enters the `Ready` state.
+///
+/// ### Return:
 ///   Returns whether the execution was successful, and returns 0 if successful.
 ///
-/// syscall ID: 93
+/// syscall ID: 124
 pub fn yield_() -> isize {
   sys_yield()
 }
 
 /// ### Function:
+///   current process send a signal to another process(may be itself).
+///
+/// ### Parameters:
+///   - `pid`: the acceptor process ID
+///   - `signum`: the number of signal
+///
+/// ### Return:
+///   Return -1 if the parameters is invalid(the specified process or signal type does not exist), otherwise return 0.
+///
+/// syscall ID: 129
+pub fn kill(pid: usize, signum: i32) -> isize {
+  sys_kill(pid, signum)
+}
+
+/// ### Function:
 ///   Get the current time, saved in the TimeVal struct ts, _tz ignored in our implementation.
-/// ### Return value:
+///
+/// ### Return:
 ///   Returns whether the execution was successful, and returns 0 if successful.
 ///
 /// syscall ID: 169
@@ -213,7 +258,8 @@ pub fn get_time() -> isize {
 
 /// ### Function:
 ///   Get the current process pid.
-/// ### Return value:
+///
+/// ### Return:
 ///   Returns current process pid.
 ///
 /// syscall ID: 172
@@ -223,7 +269,8 @@ pub fn getpid() -> isize {
 
 /// ### Function:
 ///   The current process forks out a child process.
-/// ### Return value:
+///
+/// ### Return:
 ///   Returns 0 for the child process, and returns the PID of the child process for the current process.
 ///
 /// syscall ID: 220
@@ -232,18 +279,47 @@ pub fn fork() -> isize {
 }
 
 /// ### Function:
-///   Empty the address space of the current process and load a specific executable file,
+///     Empty the address space of the current process and load a specific executable file,
 ///     return to user mode and start its execution.
+///
 /// ### Parameter:
-///   - path The name of the executable to load.
-///   - args the elements of this array are the start address of each parameter strings
-/// ### Return value:
+///   - `path`: The name of the executable to load.
+///   - `args`: the elements of this array are the start address of each parameter strings
+///
+/// ### Return:
 ///   Returns -1 if there is an error (if no executable matching the name is found),
 ///     otherwise it should not be returned
 ///
 /// syscall ID: 221
 pub fn exec(path: &str, args: &[*const u8]) -> isize {
   sys_exec(path, args)
+}
+
+/// ### Function:
+///   The current process waits for a child process to become a zombie process,
+///   reclaiming all its resources and collecting its return value.
+///
+/// ### Parameters:
+///   - `pid`: Represents the process ID of the child process to wait,
+///           if -1, it means waiting for any child process.
+///   - `exit_code`: Indicates the address to save the return value of the child process.
+///           If this address is 0, it means that it does not need to be saved.
+/// ### Return:
+///   Returns -1 if the child process to wait for does not exist;
+///     Otherwise returns -2 if none of the child processes to wait for have ended.
+///     Otherwise return the process ID of the ended child process
+///
+/// syscall ID: 260
+pub fn waitpid(pid: usize, exit_code: &mut i32) -> isize {
+  loop {
+    match sys_waitpid(pid as isize, exit_code as *mut _) {
+      -2 => {
+        yield_();
+      }
+      // -1 or a real pid
+      exit_pid => return exit_pid,
+    }
+  }
 }
 
 pub fn wait(exit_code: &mut i32) -> isize {
@@ -266,188 +342,229 @@ pub fn waitpid_nb(
 }
 
 /// ### Function:
-///   The current process waits for a child process to become a zombie process,
-///   reclaiming all its resources and collecting its return value.
-/// ### Parameters:
-///   - pid: Represents the process ID of the child process to wait,
-///           if -1, it means waiting for any child process.
-///   - exit_code: Indicates the address to save the return value of the child process.
-///           If this address is 0, it means that it does not need to be saved.
-/// ### Return value:
-///   Returns -1 if the child process to wait for does not exist;
-///     Otherwise returns -2 if none of the child processes to wait for have ended.
-///     Otherwise return the process ID of the ended child process
+///   create a new thread in current process
 ///
-/// syscall ID: 260
-pub fn waitpid(pid: usize, exit_code: &mut i32) -> isize {
+/// ### Parameters:
+///   - `entry`: the thread function entry point.
+///   - `arg`: the params provided to thread
+///
+/// ### Return:
+///   the tid of created thread.
+///
+/// syscall ID: 1000
+pub fn thread_create(entry: usize, arg: usize) -> isize {
+  sys_thread_create(entry, arg)
+}
+
+/// ### Function:
+///   Get the current thread tid
+///
+/// ### Return:
+///   return the current thread tid.
+///
+/// syscall ID: 1001
+pub fn gettid() -> isize {
+  sys_gettid()
+}
+
+/// ### Function:
+///   waiting a thread in current process.
+///
+/// ### Parameter:
+///   - `tid`: represent the tid of the specified thread.
+///
+/// ### Return:
+///   If the thread is not existed, return -1,
+///   if the thread haven't not exited, return -2,
+///   otherwise, return the exit_code of this thread.
+///
+/// syscall ID: 1002
+pub fn waittid(tid: usize) -> isize {
   loop {
-    match sys_waitpid(pid as isize, exit_code as *mut _) {
+    match sys_waittid(tid) {
       -2 => {
         yield_();
       }
-      // -1 or a real pid
-      exit_pid => return exit_pid,
+      exit_code => return exit_code,
     }
   }
 }
 
-pub fn sleep(period_ms: usize) {
-  let start = sys_get_time();
-  while sys_get_time() < start + period_ms as isize {
-    sys_yield();
-  }
-}
-
-#[repr(C, align(16))]
-#[derive(Debug, Clone, Copy)]
-/// We align it to 16 bytes so that it doesn't cross virtual pages.
-///
-/// [Mention]: It should be noted that our current implementation is relatively simple
-/// and does not support signal nesting for the time being,
-/// that is, to execute another signal processing routine
-/// during the execution of one signal processing routine.
-///
-/// (same as os/task/action/SignalAction)
-pub struct SignalAction {
-  /// Represents the entry address of the signal processing routine.
-  pub handler: usize,
-  /// Indicates the signal `mask` during execution of the signal processing routine.
-  pub mask: SignalFlags,
-}
-
-impl Default for SignalAction {
-  fn default() -> Self {
-    Self {
-      handler: 0,
-      mask: SignalFlags::empty(),
-    }
-  }
-}
-
-pub const SIGDEF: i32 = 0; // Default signal handling
-pub const SIGHUP: i32 = 1;
-pub const SIGINT: i32 = 2;
-pub const SIGQUIT: i32 = 3;
-pub const SIGILL: i32 = 4;
-pub const SIGTRAP: i32 = 5;
-pub const SIGABRT: i32 = 6;
-pub const SIGBUS: i32 = 7;
-pub const SIGFPE: i32 = 8;
-pub const SIGKILL: i32 = 9;
-pub const SIGUSR1: i32 = 10;
-pub const SIGSEGV: i32 = 11;
-pub const SIGUSR2: i32 = 12;
-pub const SIGPIPE: i32 = 13;
-pub const SIGALRM: i32 = 14;
-pub const SIGTERM: i32 = 15;
-pub const SIGSTKFLT: i32 = 16;
-pub const SIGCHLD: i32 = 17;
-pub const SIGCONT: i32 = 18;
-pub const SIGSTOP: i32 = 19;
-pub const SIGTSTP: i32 = 20;
-pub const SIGTTIN: i32 = 21;
-pub const SIGTTOU: i32 = 22;
-pub const SIGURG: i32 = 23;
-pub const SIGXCPU: i32 = 24;
-pub const SIGXFSZ: i32 = 25;
-pub const SIGVTALRM: i32 = 26;
-pub const SIGPROF: i32 = 27;
-pub const SIGWINCH: i32 = 28;
-pub const SIGIO: i32 = 29;
-pub const SIGPWR: i32 = 30;
-pub const SIGSYS: i32 = 31;
-
-bitflags! {
-  #[derive(Clone, Copy, Debug)]
-  pub struct SignalFlags: i32 {
-    const SIGDEF = 1; // Default signal handling
-    const SIGHUP = 1 << 1;
-    const SIGINT = 1 << 2;
-    const SIGQUIT = 1 << 3;
-    const SIGILL = 1 << 4;
-    const SIGTRAP = 1 << 5;
-    const SIGABRT = 1 << 6;
-    const SIGBUS = 1 << 7;
-    const SIGFPE = 1 << 8;
-    const SIGKILL = 1 << 9;
-    const SIGUSR1 = 1 << 10;
-    const SIGSEGV = 1 << 11;
-    const SIGUSR2 = 1 << 12;
-    const SIGPIPE = 1 << 13;
-    const SIGALRM = 1 << 14;
-    const SIGTERM = 1 << 15;
-    const SIGSTKFLT = 1 << 16;
-    const SIGCHLD = 1 << 17;
-    const SIGCONT = 1 << 18;
-    const SIGSTOP = 1 << 19;
-    const SIGTSTP = 1 << 20;
-    const SIGTTIN = 1 << 21;
-    const SIGTTOU = 1 << 22;
-    const SIGURG = 1 << 23;
-    const SIGXCPU = 1 << 24;
-    const SIGXFSZ = 1 << 25;
-    const SIGVTALRM = 1 << 26;
-    const SIGPROF = 1 << 27;
-    const SIGWINCH = 1 << 28;
-    const SIGIO = 1 << 29;
-    const SIGPWR = 1 << 30;
-    const SIGSYS = 1 << 31;
-  }
-}
-
 /// ### Function:
-///   current process send a signal to another process(may be itself).
-/// ### Parameters:
-///   - pid the acceptor process ID
-///   - signum the number of signal
-/// ### Return value:
-///   Return -1 if the parameters is invalid(the specified process or signal type does not exist), otherwise return 0.
+///   create a new mutex in current process.
 ///
-/// syscall ID: 129
-pub fn kill(pid: usize, signum: i32) -> isize {
-  sys_kill(pid, signum)
-}
-
-/// ### Function:
-///   Setting a handler for specified signal in current process, meanwhile store the previous handler function.
-/// ### Parameters:
-///   - signum the number of signal
-///   - action the handler want set
-///   - old_action store the previous handler
-/// ### Return value:
-///   return -1 if the `action` or `old_action` is nullptr, or the signum is invalid, otherwise return 0.
-///
-/// syscall ID: 134
-pub fn sigaction(
-  signum: i32,
-  action: Option<&SignalAction>,
-  old_action: Option<&mut SignalAction>,
-) -> isize {
-  sys_sigaction(
-    signum,
-    action.map_or(core::ptr::null(), |a| a),
-    old_action.map_or(core::ptr::null_mut(), |a| a),
-  )
-}
-
-/// ### Function:
-///   setting the global signal mask in current process.
 /// ### Parameter:
-///   mask represents the global signal mask will be set, representing
-///   a set of signals(all signals in this set will be always ignored by current process).
-/// ### Return value:
-///   if the parameter is invalid return -1, other return the previous mask.
+///   - `blocking`: if setting `true`, representing this mutex is used in blocking.
 ///
-/// syscall ID: 135
-pub fn sigprocmask(mask: u32) -> isize {
-  sys_sigprocmask(mask)
+/// ### Return:
+///   Assuming this operation always succeed, and return the mutex id.
+///
+/// syscall ID: 1010
+pub fn mutex_create() -> isize {
+  sys_mutex_create(false)
 }
 
 /// ### Function:
-///   The process notifies the kernel that the signal processing routine exits,
-///     and the original process execution can be resumed.
-/// ### Return value:
-///   if error happened return -1, otherwise return 0.
-pub fn sigreturn() -> isize {
-  sys_sigreturn()
+///   create a new `blocking` mutex in current process.
+///
+/// ### Parameter:
+///   - `blocking`: if setting `true`, representing this mutex is used in blocking.
+///
+/// ### Return:
+///   Assuming this operation always succeed, and return the mutex id.
+///
+/// syscall ID: 1010
+pub fn mutex_blocking_create() -> isize {
+  sys_mutex_create(true)
+}
+
+/// ### Function:
+///   try to acquire the mutex in current process.
+///
+/// ### Parameter:
+///   - `mutex_id`: represent the id of the mutex to acquire.
+///
+/// ### Return:
+///   return 0.
+///
+/// syscall ID: 1011
+pub fn mutex_lock(mutex_id: usize) -> isize {
+  sys_mutex_lock(mutex_id)
+}
+
+/// ### Function:
+///   release a mutex in current process.
+///
+/// ### Parameter:
+///   - `mutex_id`: represent the id of mutex to release.
+///
+/// ### Return:
+///   return 0.
+///
+/// syscall ID: 1012
+pub fn mutex_unlock(mutex_id: usize) -> isize {
+  sys_mutex_unlock(mutex_id)
+}
+
+/// ### Function:
+///   create a semaphore in current process.
+///
+/// ### Parameter:
+///   - `res_count`: Indicates the initial
+///         resource available quantity for this semaphore, a usize.
+///
+/// ### Return:
+///   assuming this operation always succeed, return the semaphore id.
+///
+/// syscall ID: 1020
+pub fn semaphore_create(res_count: usize) -> isize {
+  sys_semaphore_create(res_count)
+}
+
+/// ### Function:
+///   doing the V operation in specified semaphore in current process.
+///
+/// ### Parameter:
+///   - `sem_id`: the specified semaphore id.
+///
+/// ### Return:
+///   assuming this operation always succeed, return 0.
+///
+/// syscall ID: 1021
+pub fn semaphore_up(sem_id: usize) -> isize {
+  sys_semaphore_up(sem_id)
+}
+
+/// ### Function:
+///   doing the P operation in specified semaphore in current process.
+///
+/// ### Parameter:
+///   - `sem_id`: the specified semaphore id.
+///
+/// ### Return:
+///   assuming this operation always succeed, return 0.
+///
+/// syscall ID: 1022
+pub fn semaphore_down(sem_id: usize) -> isize {
+  sys_semaphore_down(sem_id)
+}
+
+/// ### Function:
+///   create a condition variable in current process.
+///
+/// ### Return:
+///   assuming this operation always succeeds, return the condition variable id.
+///
+/// syscall ID: 1030
+pub fn condvar_create() -> isize {
+  sys_condvar_create()
+}
+
+/// ### Function:
+///   Signal operation on the specified condition variable,
+///   of the current process, wake up a thread blocking on this condition variable (if present).
+///
+/// ### Parameter:
+///   - `condvar_id`: the speficied condition variable id.
+///
+/// ### Return:
+///   assuming this operation always succeeds, return 0.
+///
+/// syscall ID: 1031
+pub fn condvar_signal(condvar_id: usize) -> isize {
+  sys_condvar_signal(condvar_id)
+}
+
+/// ### Function:
+///   The wait operation on the specified condition variable
+///   of the current process is divided into multiple stages:
+///   1. release the mutex owning by current thread.
+///   2. block the current thread and add it to the blocking queue,
+///       with the specified condition variable.
+///   3. until the current thread is awakened by another thread
+///       through the signal operation.
+///
+/// ### Parameters:
+///   - `mutex_id`: represents the mutex id possessing by current thread.
+///   - `condvar_id`: represents the condition variable id.
+///
+/// ### Return:
+///   assuming this operation always succeeds, return 0.
+pub fn condvar_wait(
+  condvar_id: usize,
+  mutex_id: usize,
+) -> isize {
+  sys_condvar_wait(condvar_id, mutex_id)
+}
+
+#[macro_export]
+macro_rules! vstore {
+  ($var_ref: expr, $value: expr) => {
+    unsafe {
+      core::intrinsics::volatile_store(
+        $var_ref as *const _ as _,
+        $value,
+      )
+    }
+  };
+}
+
+#[macro_export]
+macro_rules! vload {
+  ($var_ref: expr) => {
+    unsafe {
+      core::intrinsics::volatile_load(
+        $var_ref as *const _ as _,
+      )
+    }
+  };
+}
+
+#[macro_export]
+macro_rules! memory_fence {
+  () => {
+    core::sync::atomic::fence(
+      core::sync::atomic::Ordering::SeqCst,
+    )
+  };
 }

@@ -17,8 +17,6 @@ fn panic(info: &PanicInfo) -> ! {
   } else {
     error!("Panicked: {}", info.message().unwrap())
   }
-  // unsafe {
-  //   print_stack_trace();
-  // }
+
   shutdown(true)
 }

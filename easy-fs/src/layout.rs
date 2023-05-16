@@ -59,7 +59,7 @@ const INDIRECT1_BOUND: usize = DIRECT_BOUND + INODE_INDIRECT1_COUNT;
 const INDIRECT2_BOUND: usize = INDIRECT1_BOUND + INODE_INDIRECT2_COUNT;
 
 /// Super block of a filesystem
-/// 
+///
 /// It is a data structure of disk, storing at the bit number of 0 of disk.
 #[repr(C)]
 pub struct SuperBlock {

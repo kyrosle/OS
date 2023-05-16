@@ -4,7 +4,9 @@
   "rust-analyzer.files.excludeDirs": [
     // this project using the `clap` which does not support `riscv64gc-unknown-none-elf`
     "easy-fs-fuse",
-    "_easy-fs-fuse"
+    "_easy-fs-fuse",
+    "storage_code",
+    "*/.cargo/*"
   ],
   "rust-analyzer.checkOnSave.allTargets": false,
   "python.analysis.typeCheckingMode": "basic",

@@ -21,6 +21,9 @@ use user_lib::{
 };
 
 #[derive(Debug)]
+/// Each Process
+/// - at most `1` input process  (process < input process )
+/// - at most `1` output process (process > output process)
 struct ProcessArguments {
   input: String,
   output: String,
@@ -37,6 +40,7 @@ impl ProcessArguments {
       .map(|&arg| {
         let mut string = String::new();
         string.push_str(arg);
+        // parsing to kernel
         string.push('\0');
         string
       })
@@ -66,6 +70,7 @@ impl ProcessArguments {
 
     let mut args_addr: Vec<*const u8> =
       args_copy.iter().map(|arg| arg.as_ptr()).collect();
+    // This way the kernel will know when it sees it that the command line arguments have been obtained.
     args_addr.push(core::ptr::null::<u8>());
 
     Self {
@@ -88,39 +93,54 @@ pub fn main() -> i32 {
       LF | CR => {
         println!("");
         if !line.is_empty() {
+          // split with `|`
           let splited: Vec<_> =
             line.as_str().split('|').collect();
+
+          // iterate each cmd and map as Process
           let process_arguments_list: Vec<_> = splited
             .iter()
             .map(|&cmd| ProcessArguments::new(cmd))
             .collect();
-          let mut valid = true;
+
+          // ---- check the process cmd validity ----
+          let mut valid: bool = true;
           for (i, process_args) in
             process_arguments_list.iter().enumerate()
           {
+            // first process should have output process
             if i == 0 {
               if !process_args.output.is_empty() {
                 valid = false;
               }
             } else if i == process_arguments_list.len() - 1
+            // the last process should have input process
             {
               if !process_args.input.is_empty() {
                 valid = false;
               }
             } else if !process_args.output.is_empty()
               || !process_args.input.is_empty()
+            // the process between the first and the last should having
+            // output process and input process meanwhile.
             {
               valid = false;
             }
           }
+
+          // But alone process is valid.
           if process_arguments_list.len() == 1 {
             valid = true;
           }
+          // ---- ---- ---- ----
+
           if !valid {
             println!("Invalid command: Inputs/Outputs cannot be correctly binded!");
           } else {
             // create pipes
             let mut pipes_fd: Vec<[usize; 2]> = Vec::new();
+
+            // Not the alone application
             if !process_arguments_list.is_empty() {
               for _ in 0..process_arguments_list.len() - 1 {
                 let mut pipe_fd = [0usize; 2];
@@ -128,16 +148,19 @@ pub fn main() -> i32 {
                 pipes_fd.push(pipe_fd);
               }
             }
+
             let mut children: Vec<_> = Vec::new();
             for (i, process_argument) in
               process_arguments_list.iter().enumerate()
             {
               let pid = fork();
+              // children process:
               if pid == 0 {
                 let input = &process_argument.input;
                 let output = &process_argument.output;
                 let args_copy = &process_argument.args_copy;
                 let args_addr = &process_argument.args_addr;
+
                 // redirect input
                 if !input.is_empty() {
                   let input_fd =
@@ -154,6 +177,7 @@ pub fn main() -> i32 {
                   assert_eq!(dup(input_fd), 0);
                   close(input_fd);
                 }
+
                 // redirect output
                 if !output.is_empty() {
                   let output_fd = open(
@@ -172,6 +196,7 @@ pub fn main() -> i32 {
                   assert_eq!(dup(output_fd), 1);
                   close(output_fd);
                 }
+
                 // receive input from the previous process
                 if i > 0 {
                   close(0);
@@ -202,6 +227,7 @@ pub fn main() -> i32 {
                 }
                 unreachable!();
               } else {
+                // current father process
                 children.push(pid);
               }
             }

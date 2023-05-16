@@ -21,22 +21,38 @@ static SUCC_TESTS: &[(&str, &str, &str, &str, i32)] = &[
   ("hello_world\0", "\0", "\0", "\0", 0),
   ("huge_write\0", "\0", "\0", "\0", 0),
   ("matrix\0", "\0", "\0", "\0", 0),
+  ("mpsc_sem\0", "\0", "\0", "\0", 0),
+  ("phil_din_mutex\0", "\0", "\0", "\0", 0),
   ("pipe_large_test\0", "\0", "\0", "\0", 0),
   ("pipetest\0", "\0", "\0", "\0", 0),
+  ("adder_peterson_spin\0", "\0", "\0", "\0", 0),
+  ("adder_peterson_yield\0", "\0", "\0", "\0", 0),
+  ("adder_mutex_blocking\0", "\0", "\0", "\0", 0),
+  ("adder_mutex_spin\0", "\0", "\0", "\0", 0),
   ("run_pipe_test\0", "\0", "\0", "\0", 0),
   ("sleep_simple\0", "\0", "\0", "\0", 0),
   ("sleep\0", "\0", "\0", "\0", 0),
-  ("sig_simple\0", "\0", "\0", "\0", 0),
-  ("sig_simple2\0", "\0", "\0", "\0", 0),
-  ("sig_tests\0", "\0", "\0", "\0", 0),
+  ("sleep_simple\0", "\0", "\0", "\0", 0),
+  ("sync_sem\0", "\0", "\0", "\0", 0),
+  ("condsync_sem\0", "\0", "\0", "\0", 0),
+  ("condsync_condvar\0", "\0", "\0", "\0", 0),
+  ("threads_arg\0", "\0", "\0", "\0", 0),
+  ("threads\0", "\0", "\0", "\0", 0),
   ("yield\0", "\0", "\0", "\0", 0),
+  ("barrier_fail\0", "\0", "\0", "\0", 0),
+  ("barrier_condvar\0", "\0", "\0", "\0", 0),
 ];
 
 static FAIL_TESTS: &[(&str, &str, &str, &str, i32)] = &[
   ("stack_overflow\0", "\0", "\0", "\0", -11),
+  ("race_adder_loop\0", "\0", "\0", "\0", -6),
   ("priv_csr\0", "\0", "\0", "\0", -4),
   ("priv_inst\0", "\0", "\0", "\0", -4),
   ("store_fault\0", "\0", "\0", "\0", -11),
+  ("until_timeout\0", "\0", "\0", "\0", -6),
+  ("adder\0", "\0", "\0", "\0", -6),
+  ("adder_simple_spin\0", "\0", "\0", "\0", -6),
+  ("adder_simple_yield\0", "\0", "\0", "\0", -6),
 ];
 
 use user_lib::{exec, fork, waitpid};
@@ -87,7 +103,7 @@ fn run_tests(
       assert_eq!(pid, wait_pid);
       if exit_code == test.4 {
         // summary apps with  exit_code
-        pass_num += 1;
+        pass_num = pass_num + 1;
       }
       println!(
                 "\x1b[32mUsertests: Test {} in Process {} exited with code {}\x1b[0m",
@@ -127,5 +143,5 @@ pub fn main() -> i32 {
     );
   }
   println!(" Usertests failed!");
-  -1
+  return -1;
 }

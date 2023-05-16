@@ -3,12 +3,11 @@
 
 extern crate user_lib;
 
-use user_lib::{exec, fork, wait, yield_, println};
+use user_lib::{exec, fork, wait, yield_};
 
 #[no_mangle]
 fn main() -> i32 {
   if fork() == 0 {
-    println!("-- Init process --");
     exec("user_shell\0", &[core::ptr::null::<u8>()]);
   } else {
     loop {
