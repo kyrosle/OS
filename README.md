@@ -1,3 +1,4 @@
+
 <!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
 
 <!-- code_chunk_output -->
@@ -6,15 +7,58 @@
   - [Installation](#installation)
   - [chapter](#chapter)
     - [Basic environment to run application](#basic-environment-to-run-application)
+      - [Function Call Context:](#function-call-context)
     - [With batch system](#with-batch-system)
+      - [TrapContext](#trapcontext)
     - [Multiprogramming and Time-Sharing Multitasking](#multiprogramming-and-time-sharing-multitasking)
+      - [Interrupt of RISC-V:](#interrupt-of-risc-v)
     - [Address Space](#address-space)
+      - [Rust data structures in heap:](#rust-data-structures-in-heap)
+      - [Smart Pointer / Container memory layout:](#smart-pointer--container-memory-layout)
+      - [Address Virtualization:](#address-virtualization)
+      - [Segmented memory management:](#segmented-memory-management)
+      - [Paged memory management:](#paged-memory-management)
+      - [Concept:](#concept)
+      - [Address Format:](#address-format)
+      - [PTE, Page Table Entry:](#pte-page-table-entry)
+      - [Multilevel page table:](#multilevel-page-table)
+      - [Application address space:](#application-address-space)
     - [Process os](#process-os)
+      - [TaskControlBlock(PCB):](#taskcontrolblockpcb)
+      - [Implement process management:](#implement-process-management)
+      - [In process scheduling mechanism:](#in-process-scheduling-mechanism)
+      - [Exec a new application:](#exec-a-new-application)
     - [File system](#file-system)
+      - [Easy-fs:](#easy-fs)
+      - [Block Device Interface Layer:](#block-device-interface-layer)
+      - [Block Cache Layer:](#block-cache-layer)
+      - [Disk Layout And Data Structures:](#disk-layout-and-data-structures)
+      - [Easy File System(efs.rs):](#easy-file-systemefsrs)
+      - [Inode(vfs.rs):](#inodevfsrs)
+      - [Kernel Inode Layer:](#kernel-inode-layer)
+      - [File Description Layer:](#file-description-layer)
     - [Pipe And Signal](#pipe-and-signal)
+      - [Pipe:](#pipe)
+      - [Redirect standard I/O:](#redirect-standard-io)
+      - [Signal handle process:](#signal-handle-process)
+      - [Signal Mechanisms:](#signal-mechanisms)
+      - [Signal generation:](#signal-generation)
+      - [Signal handle:](#signal-handle)
+    - [Thread and Synchronous](#thread-and-synchronous)
+      - [multiple threads in user mode:](#multiple-threads-in-user-mode)
+      - [multiple threads in kernel mode:](#multiple-threads-in-kernel-mode)
+        - [thread metadata structure:](#thread-metadata-structure)
+        - [process metadata structure:](#process-metadata-structure)
+        - [our manager offers interfaces:](#our-manager-offers-interfaces)
+      - [mutex:](#mutex)
+        - [blocking and wakeup:](#blocking-and-wakeup)
+      - [semaphore:](#semaphore)
+        - [consumer(s) and producer(s):](#consumers-and-producers)
+      - [condvar:](#condvar)
+        - [wakeup operation ways:](#wakeup-operation-ways)
+        - [barrier:](#barrier)
 
 <!-- /code_chunk_output -->
-
 # rCore on Windows platform
 
 ## Installation
@@ -67,7 +111,7 @@ rd:  Destination Register
 imm: Immediate
 ```
 
-Function Call Context:
+#### Function Call Context:
 
 - Callee-Saved: used by callee
 - Caller-Saved: used by caller
@@ -145,7 +189,7 @@ sret -> s -> u
 
 User stack and Kernel stack(Just wrapping the bytes array).
 
-TrapContext
+#### TrapContext
 
 ```rust
 #[repr(C)]
@@ -225,7 +269,7 @@ pub struct TaskContext {
 
 A `TaskControlBlock` contains: `TaskStatus`, `TaskContext`.
 
-Interrupt of RISC-V:
+#### Interrupt of RISC-V:
 
 - Software Interrupt
 - Timer Interrupt
@@ -248,7 +292,7 @@ another 64-bit counter CSR `mtimecmp`, if the value of `mtime` is exceed `mtimec
 
 ![](pictures/address_space_os.png)
 
-Rust data structures in heap:
+#### Rust data structures in heap:
 
 - `*const T / *mut T`
 - `&T / &mut T`
@@ -257,7 +301,7 @@ Rust data structures in heap:
 - `RefCell<T>`
 - `Mutex<TJk>`
 
-Smart Pointer / Container memory layout:  
+#### Smart Pointer / Container memory layout:  
 ![](pictures/memory_layout.png)
 
 using the crate `buddy_system_allocator` as heap allocator. and use `#[global_allocator]` for Semantic items tagged.
@@ -266,7 +310,7 @@ using the crate `buddy_system_allocator` as heap allocator. and use `#[global_al
 
 we use a static mut bytes array(in kernel .bss segment), as the heap area.
 
-Address Virtualization:
+#### Address Virtualization:
 
 ![](pictures/address_virtualization.png)
 
@@ -277,7 +321,7 @@ virtual address -> CPU.MMU(Memory Management Unit) -> Physical address
                         Address Translation
 ```
 
-Segmented memory management:
+#### Segmented memory management:
 ![](pictures/segment_memory_management.png)
 
 - Every application address size limited to a const number `bound`, that is, each application virtual address range from $[0, bound)$.
@@ -292,7 +336,7 @@ do some improve with different base/bound:
 ![](pictures/segment_memory_mangement_plus.png)
 however, it also may waste too much memory(External Fragment).
 
-Paged memory management:
+#### Paged memory management:
 ![](pictures/page_memory_management.png)
 
 - kernel do physical memory manage base on page.
@@ -300,7 +344,7 @@ Paged memory management:
 - available physical memory are divided into serval physical as Frame.
 - each application address are consist of serval virtual pages.
 
-Concept:
+#### Concept:
 
 - VPN: Virtual Page Number
 - PPN: Physical Page Number
@@ -324,10 +368,10 @@ After that, address which S mode or U mode would be all consider as a virtual ad
 - ASID: Address space identifier.
 - PPN: The physical page number where the root page table is located.
 
-Address Format:
+#### Address Format:
 ![](pictures/address_format.png)
 
-PTE, Page Table Entry:
+#### PTE, Page Table Entry:
 ![](pictures/page_table.png)
 
 - V(Valid): valid if current bit is 1
@@ -337,7 +381,7 @@ PTE, Page Table Entry:
 - A(Accessed)
 - D(Dirty)
 
-Multilevel page table:
+#### Multilevel page table:
 
 Allocation on demand, and using the `trie` algorithm.
 
@@ -360,7 +404,7 @@ Each kernel stack would reserve a `Guard Page` as empty hole.
 
 ![](pictures/kernel_address_add_lf.png)
 
-Application address space:
+#### Application address space:
 ![](pictures/application_address_space.png)
 
 [More About Address Space](http://rcore-os.cn/rCore-Tutorial-Book-v3/chapter4/7more-as.html)
@@ -383,7 +427,7 @@ PidHandler(PidAllocator): allocator <-alloc/dealloc-> pid(usize).
 
 KernelStack: contain a `pid`.
 
-TaskControlBlock(PCB):
+#### TaskControlBlock(PCB):
 
 ```rust
 // immutable
@@ -435,7 +479,7 @@ unsafe {
 }
 ```
 
-Implement process management:
+#### Implement process management:
 
 - Create a initial process(initproc).
 
@@ -503,7 +547,7 @@ a `elf` data slice(provided by `get_app_data_by_name` from `loader` module).
 +----------+-------------------+
 ```
 
-In process scheduling mechanism:
+#### In process scheduling mechanism:
 
 calling by `suspend_current_and_run_next()` from `task` module.
 
@@ -546,7 +590,7 @@ pub fn sys_fork() -> isize {
 }
 ```
 
-Exec a new application:
+#### Exec a new application:
 
 replace current address with a new address space form by ELF.
 
@@ -569,7 +613,7 @@ process with `waitpid`.
 Code Tree:
 ![](pictures/file_system.png)
 
-Easy-fs:
+#### Easy-fs:
 
 ```mermaid
 graph TD;
@@ -625,7 +669,7 @@ B -- Accesses virtio_blk virtual disk device \n via polling --> C(OS kernel)
 A -- Isolates process management of OS kernel \n by avoiding direct access to \n process-related data and functions --> C
 ```
 
-Block Device Interface Layer:
+#### Block Device Interface Layer:
 
 ```rust
 // easy-fs/src/block_dev.rs
@@ -640,7 +684,7 @@ pub trait BlockDevice : Send + Sync + Any {
 }
 ```
 
-Block Cache Layer:
+#### Block Cache Layer:
 
 Every time we want to do read/write in a disk block, we should put the
 block data onto a temporarily created cache area, writing it back after serval writing/reading operations.
@@ -665,7 +709,7 @@ impl BlockCache {
 }
 ```
 
-Disk Layout And Data Structures:
+#### Disk Layout And Data Structures:
 
 ```mermaid
 graph LR
@@ -717,11 +761,11 @@ Each files can be considered as servals of `DataBlock[u8;BLOCK_SZ]`,
 But Directory must follow some special format, considering as a consequence, which is
 a binary group, the first element is the name of this directory, and then is the number of Inode.
 
-Easy File System(efs.rs):
+#### Easy File System(efs.rs):
 
 Manage `Super Block`, `Inode Bitmap`, `Inode region`, `Data Bitmap` and `Data region`.
 
-Inode(vfs.rs):
+#### Inode(vfs.rs):
 
 Explosive data structure.
 
@@ -773,7 +817,7 @@ It can be executed in memory, which avoids the storage overhead and other proble
 
 we using crate `virtio-divers` to support VirtIO block devices....
 
-Kernel Inode Layer:
+#### Kernel Inode Layer:
 
 ```rust
 // Indicates a regular file or directory that is opened in the process
@@ -788,7 +832,7 @@ pub struct OSInodeInner {
 }
 ```
 
-File Description Layer:
+#### File Description Layer:
 
 ```rust
 pub trait File: Send + Sync {
@@ -841,7 +885,7 @@ Implement `File trait` to `Stdin` and `Stdout` (meta structure).
 In process forking, child process should completely extend from father
 process fd table, in order to share all files.
 
-Pipe:
+#### Pipe:
 
 ```rust
 sys_pipe(pipe: *mut usize) -> isize;
@@ -926,7 +970,7 @@ such as : accepting "aa" and "bb":
 
 At the same time, we also need to modify the `a0/a1` register in the Trap context, so that `a0` represents the number of command line parameters, and `a1` represents the starting address of the blue area argv_base in the figure.
 
-Redirect standard I/O:
+#### Redirect standard I/O:
 
 `sys_dup` : copy its a already open file reference and allocate a new fd point at this file.
 
@@ -979,7 +1023,7 @@ The Receiver of signals is a process, having 3 ways to handle:
 if some signals don't have its corresponding handler function, kernel
 will handle it in default way.
 
-Signal handle process:
+#### Signal handle process:
 
 ![](/pictures/signal_handle.png)
 
@@ -995,7 +1039,7 @@ kernel will store the current process `Trap Context` in some place, and then ret
 
 - otherwise, kernel will solve this signal in default way, and then return to user mode to run next instruction.
 
-Signal Mechanisms:
+#### Signal Mechanisms:
 - `sys_sigaction`: set up a signal processing routine.
 - `sys_procmask`: set the signal mask of the process.
 - `sys_sigreturn`: clears the stack frame, returns from the signal processing routine.
@@ -1008,13 +1052,13 @@ pub signal_mask: SignalFlags,
 pub signal_actions: SignalActions,
 ```
 
-Signal generation:
+#### Signal generation:
 - process send `kill` to itself or other process.
 - kernel detect some events and then send the signal to process, 
 but this event has nothing to do with the execution of the process receiving the signal, such as `SIGCHLD`.
 - current process execution trigger some condition, then Trap into kernel handler, and then kernel send the corresponding signal to this kernel, such as `SIGSEGV` and `SIGILL`.
 
-Signal handle:
+#### Signal handle:
 adding two fields in `TaskControlBlock`:
 ```rust
 pub handling_sig: isize,
@@ -1035,4 +1079,318 @@ B -- SIGKILL, SIGSTOP, SIGCONT, SIGDEF --> C[call_kernel_signal_handler]
 B -- else --> D[call_user_signal_handler]
 C -- !frozen or killed --> E[suspend_current_and_run_next]
 D -- !frozen or killed --> E
+```
+
+### Thread and Synchronous
+
+code tree:
+![](/pictures/thread_code.png)
+
+here we consider thread as a task:
+- Thread Control Block (TCB)
+- Process Control Block (PCB)
+
+![](/pictures/task_control.png)
+
+and then, adding `Mutex`, `Semaphore` and `Condvar`.
+![](/pictures/thread_with_sync.png)
+
+#### multiple threads in user mode:
+
+two example code file:
+- [stackful_coroutine](/user/src/bin/stackful_coroutine.rs)
+- [stackless_coroutine](/user/src/bin/stackless_coroutine.rs.rs)
+
+#### multiple threads in kernel mode:
+
+process address:
+![](/pictures/process_addresss.png)
+
+each thread has its user resource:
+
+```rust
+pub struct TaskUserRes {
+  /// TID allocated by current process.
+  pub tid: usize,
+  /// Used to calculate the thread user stack position.
+  pub ustack_base: usize,
+  /// Weak reference to the current process.
+  pub process: Weak<ProcessControlBlock>,
+}
+
+
+```
+
+##### thread metadata structure:
+
+```rust
+pub struct TaskControlBlock {
+  // immutable
+  pub process: Weak<ProcessControlBlock>,
+  pub kstack: KernelStack,
+
+  // mutable
+  inner: UPSafeCell<TaskControlBlockInner>,
+}
+
+pub struct TaskControlBlockInner {
+  /// Thread resource set.
+  pub res: Option<TaskUserRes>,
+  /// Indicates the physical page number of the physical page frame,
+  /// in which the Trap context in the application address space is placed.
+  pub trap_cx_ppn: PhysPageNum,
+  /// Save the task context of the suspended task in the task control block.
+  pub task_cx: TaskContext,
+  /// Maintain the execution state of the current process.
+  pub task_status: TaskStatus,
+  /// when the process system call `exit()` or execution meets error and terminated by kernel,
+  /// `exit_code` will save in its TCB, and then waiting for recycle its resources by it's parent process
+  /// by calling `waittid()`.
+  pub exit_code: Option<i32>,
+}
+```
+
+##### process metadata structure:
+
+```rust
+pub struct ProcessControlBlock {
+  /// immutable
+  /// Process Identifier.
+  pub pid: PidHandle,
+  /// mutable
+  inner: UPSafeCell<ProcessControlBlockInner>,
+}
+
+
+pub struct ProcessControlBlockInner {
+  /// whether current process is being killed.
+  pub is_zombie: bool,
+
+  /// Represents the application address space.
+  pub memory_set: MemorySet,
+
+  /// Points to the parent process of the current process.
+  pub parent: Option<Weak<ProcessControlBlock>>,
+  /// Save the PCB of all child processes of the current process
+  /// in a `Vec` in the form of `Arc` smart pointers, so that they can be found more easily.
+  pub children: Vec<Arc<ProcessControlBlock>>,
+  /// when the process system call `exit()` or execution meets error and terminated by kernel,
+  /// `exit_code` will save in its PCB, and then waiting for recycle its resources by it's parent process
+  /// by calling `waitpid()`.
+  pub exit_code: i32,
+
+  /// Type description:
+  /// - Vec: dynamic length.
+  /// - Option: we can distinguish the file descriptor whether is
+  ///   in free status(None) or being occupying(Some).
+  /// - Arc: sharing reference.
+  /// - dyn: maybe `Stdin` / `Stdout`
+  pub fd_table: Vec<Option<Arc<dyn File + Send + Sync>>>,
+
+  /// Record which signals have been received by the corresponding process
+  /// and have not yet been processed.
+  pub signals: SignalFlags,
+
+  /// Recording the threads generated by current process.
+  pub tasks: Vec<Option<Arc<TaskControlBlock>>>,
+  /// Used to allocate thread identifier.
+  pub task_res_allocator: RecycleAllocator,
+
+  pub mutex_list: Vec<Option<Arc<dyn Mutex>>>,
+  pub semaphore_list: Vec<Option<Arc<Semaphore>>>,
+  pub condvar_list: Vec<Option<Arc<Condvar>>>,
+}
+```
+
+##### our manager offers interfaces:
+
+```rust
+// os/src/task/manager.rs
+
+/// lazy_static：
+/// 1. TASK_MANAGER
+/// 2. PID2TCB
+
+pub fn add_task(task: Arc<TaskControlBlock>);
+pub fn remove_task(task: Arc<TaskControlBlock>);
+pub fn fetch_task() -> Option<Arc<TaskControlBlock>>;
+pub fn pid2process(pid: usize) -> Option<Arc<ProcessControlBlock>>;
+pub fn insert_into_pid2process(pid: usize, process: Arc<ProcessControlBlock>);
+pub fn remove_from_pid2process(pid: usize);
+
+// os/src/task/processor.rs
+
+/// lazy_static：PROCESSOR
+
+pub fn run_tasks();
+pub fn take_current_task() -> Option<Arc<TaskControlBlock>>;
+pub fn current_task() -> Option<Arc<TaskControlBlock>>;
+pub fn current_process() -> Arc<ProcessControlBlock>;
+pub fn current_user_token() -> usize;
+pub fn current_trap_cx() -> &'static mut TrapContext;
+pub fn current_trap_cx_user_va() -> usize;
+pub fn current_kstack_top() -> usize;
+pub fn schedule(switched_task_cx_ptr: *mut TaskContext);
+```
+
+#### mutex:
+
+```rust
+// spin mutex
+locked: UPSafeCell<bool>,
+fn lock(&self) {
+  loop {
+    let mut locked = self.locked.exclusive_access();
+    if *locked {
+      drop(locked);
+      suspend_current_and_run_next();
+      continue;
+    } else {
+      *locked = true;
+      return;
+    }
+  }
+}
+
+fn unlock(&self) {
+  let mut locked = self.locked.exclusive_access();
+  *locked = false;
+}
+// -----------
+
+// block mutex
+locked: bool,
+wait_queue: VecDeque<Arc<TaskControlBlock>>,
+
+fn lock(&self) {
+  let mut mutex_inner = self.inner.exclusive_access();
+  if mutex_inner.locked {
+    mutex_inner
+      .wait_queue
+      .push_back(current_task().unwrap());
+    drop(mutex_inner);
+    block_current_and_run_next();
+  } else {
+    mutex_inner.locked = true;
+  }
+}
+
+fn unlock(&self) {
+  let mut mutex_inner = self.inner.exclusive_access();
+  assert!(mutex_inner.locked);
+  if let Some(waking_task) =
+    mutex_inner.wait_queue.pop_front()
+  {
+    wakeup_task(waking_task);
+  } else {
+    mutex_inner.locked = false;
+  }
+}
+// ------------
+```
+
+`CAS`, `TAS`
+
+for `Atomic*`:
+- `compare_exchange`
+- `compare_and_swap`
+- `test_and_set`
+```rust
+fn compare_and_swap(ptr: *mut i32, expected: i32, new: i32) -> i32 {
+  let original = unsafe { *ptr };
+  if original == expected {
+    unsafe { *ptr = new; }
+  }
+  original
+}
+fn test_and_set(ptr: *mut i32, new: i32) -> i32 {
+    let original = unsafe { *ptr };
+    unsafe { *ptr = new };
+    original
+}
+```
+
+##### blocking and wakeup:
+add timer(`TimerCondvar`) using BinaryHeap
+
+#### semaphore:
+
+```rust
+// fields:
+pub count: isize,
+pub wait_queue: VecDeque<Arc<TaskControlBlock>>
+
+pub fn up(&self) {
+  let mut inner = self.inner.exclusive_access();
+  inner.count += 1;
+  if inner.count <= 0 {
+    if let Some(task) = inner.wait_queue.pop_front() {
+      wakeup_task(task);
+    }
+  }
+}
+
+pub fn down(&self) {
+  let mut inner = self.inner.exclusive_access();
+  inner.count -= 1;
+  if inner.count < 0 {
+    inner.wait_queue.push_back(current_task().unwrap());
+    drop(inner);
+    block_current_and_run_next();
+  }
+}
+```
+
+##### consumer(s) and producer(s):
+![](pictures/c_p.png)
+
+#### condvar:
+```rust
+pub wait_queue: VecDeque<Arc<TaskControlBlock>>
+
+pub fn signal(&self) {
+  let mut inner = self.inner.exclusive_access();
+  if let Some(task) = inner.wait_queue.pop_front() {
+    wakeup_task(task);
+  }
+}
+
+pub fn wait(&self, mutex: Arc<dyn Mutex>) {
+  mutex.unlock();
+  let mut inner = self.inner.exclusive_access();
+  inner.wait_queue.push_back(current_task().unwrap());
+  drop(inner);
+  block_current_and_run_next();
+  mutex.lock();
+}
+```
+
+##### wakeup operation ways:
+- `Hoare`
+- `Hasnen`
+- `Mesa`
+![](/pictures/s_p.png)
+
+##### barrier:
+
+```rust
+struct Barrier {
+  mutex_id: usize,
+  condvar_id: usize,
+  count: UnsafeCell<usize>,
+}
+pub fn block(&self) {
+  mutex_lock(self.mutex_id);
+  let count = self.count.get();
+  // SAFETY: Here, the accesses of the count is in the
+  // critical section protected by the mutex.
+  unsafe { *count = *count + 1; }
+  if unsafe { *count } == THREAD_NUM {
+    condvar_signal(self.condvar_id);
+  } else {
+    condvar_wait(self.condvar_id, self.mutex_id);
+    condvar_signal(self.condvar_id);
+  }
+  mutex_unlock(self.mutex_id);
+}
 ```
